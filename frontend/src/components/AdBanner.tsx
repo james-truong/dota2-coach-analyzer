@@ -27,7 +27,7 @@ function AdBanner({
     try {
       // Push ad to AdSense queue
       // @ts-ignore
-      if (window.adsbygoogle && process.env.NODE_ENV === 'production') {
+      if (window.adsbygoogle && import.meta.env.PROD) {
         // @ts-ignore
         (window.adsbygoogle = window.adsbygoogle || []).push({})
       }
@@ -37,7 +37,7 @@ function AdBanner({
   }, [])
 
   // Don't show ads in development
-  if (process.env.NODE_ENV !== 'production') {
+  if (!import.meta.env.PROD) {
     return (
       <div className={`bg-gray-700 border border-gray-600 rounded p-4 text-center ${className}`}>
         <p className="text-gray-400 text-sm">Ad Placeholder (Production Only)</p>
