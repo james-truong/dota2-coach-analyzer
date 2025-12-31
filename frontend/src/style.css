@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dota-red: #c23c2a;
+  --color-dota-green: #2ea043;
+  --color-dota-blue: #1e88e5;
+}
