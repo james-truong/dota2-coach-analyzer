@@ -34,6 +34,7 @@ export interface PlayerPerformance {
   heroImage?: string;
   playerSlot: number;
   team: 'radiant' | 'dire';
+  detectedRole?: 'Core' | 'Support';
 
   // Core stats
   kills: number;
@@ -64,16 +65,19 @@ export interface MatchInsight {
   id: string;
   matchId: string;
   playerPerformanceId: string;
-  insightType: 'mistake' | 'missed_opportunity' | 'good_play';
-  category: 'positioning' | 'itemization' | 'farm_efficiency' | 'vision' | 'teamfight' | 'decision_making';
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  insightType?: 'mistake' | 'missed_opportunity' | 'good_play';
+  category?: string | 'positioning' | 'itemization' | 'farm_efficiency' | 'vision' | 'teamfight' | 'decision_making';
+  severity: 'low' | 'medium' | 'high' | 'critical' | 'important' | 'suggestion';
   gameTime?: number;
-  title: string;
-  description: string;
-  recommendation: string;
+  title?: string;
+  description?: string;
+  recommendation?: string;
+  message?: string;  // Alternative to description for item build insights
+  suggestion?: string;  // Alternative to recommendation for item build insights
+  impact?: string;
   mapX?: number;
   mapY?: number;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface PlayerTrend {
@@ -110,6 +114,20 @@ export interface PlayerHabit {
   description: string;
 }
 
+export interface KeyMoment {
+  timestamp: number;
+  type: 'kill' | 'death' | 'multikill' | 'objective' | 'item_purchase' | 'comeback' | 'team_fight';
+  title: string;
+  description: string;
+  importance: 'high' | 'medium' | 'low';
+  metadata?: {
+    heroKilled?: string;
+    itemPurchased?: string;
+    goldSwing?: number;
+    killStreak?: number;
+  };
+}
+
 export interface AnalysisResult {
   match: Match;
   playerPerformance: PlayerPerformance;
@@ -120,5 +138,17 @@ export interface AnalysisResult {
     mediumMistakes: number;
     lowMistakes: number;
     topCategories: string[];
+  };
+  itemBuild?: {
+    items: string[];
+    score: number;
+    keyIssues: string[];
+    positives: string[];
+  };
+  keyMoments?: {
+    moments: KeyMoment[];
+    topMoments: KeyMoment[];
+    deepLink: string;
+    openDotaLink: string;
   };
 }

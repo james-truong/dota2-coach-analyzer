@@ -72,8 +72,11 @@ router.get('/:matchId/analysis', async (req, res, next) => {
     const { matchId } = req.params
     const { playerSlot } = req.query
 
+    // Get current user if authenticated
+    const currentUser = req.isAuthenticated() ? (req.user as any) : null
+
     const playerSlotNum = playerSlot ? parseInt(playerSlot as string) : undefined
-    const analysis = await getMatchAnalysis(matchId, playerSlotNum)
+    const analysis = await getMatchAnalysis(matchId, playerSlotNum, currentUser)
 
     if (!analysis) {
       return res.status(404).json({

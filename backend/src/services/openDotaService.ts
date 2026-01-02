@@ -43,7 +43,7 @@ interface OpenDotaPlayer {
   item_5?: number
 }
 
-export async function fetchMatchFromOpenDota(matchId: string): Promise<OpenDotaMatch | null> {
+export async function fetchMatchFromOpenDota(matchId: string, retryCount: number = 0): Promise<OpenDotaMatch | null> {
   // Check if demo mode is requested
   if (isDemoMatchId(matchId)) {
     console.log('Using DEMO match data (bypassing OpenDota API)')
@@ -51,7 +51,7 @@ export async function fetchMatchFromOpenDota(matchId: string): Promise<OpenDotaM
   }
 
   try {
-    console.log(`Fetching match ${matchId} from OpenDota API...`)
+    console.log(`Fetching match ${matchId} from OpenDota API${retryCount > 0 ? ` (retry ${retryCount}/3)` : ''}...`)
 
     // Build request config with headers
     const config: any = {
@@ -66,9 +66,13 @@ export async function fetchMatchFromOpenDota(matchId: string): Promise<OpenDotaM
     const apiKey = process.env.OPENDOTA_API_KEY
     if (apiKey && apiKey.trim()) {
       config.params = { api_key: apiKey }
-      console.log('Using OpenDota API key for higher rate limits')
+      if (retryCount === 0) {
+        console.log('Using OpenDota API key for higher rate limits')
+      }
     } else {
-      console.log('No API key - using anonymous access (limited rate)')
+      if (retryCount === 0) {
+        console.log('No API key - using anonymous access (limited rate)')
+      }
     }
 
     const response = await axios.get(`${OPENDOTA_API_BASE}/matches/${matchId}`, config)
@@ -85,10 +89,18 @@ export async function fetchMatchFromOpenDota(matchId: string): Promise<OpenDotaM
       return null
     }
     if (error.response?.status === 403 || error.response?.status === 429) {
-      console.error(`Access forbidden or rate limited for match ${matchId}.`)
+      // Rate limited - retry with exponential backoff
+      if (retryCount < 3) {
+        const delayMs = Math.pow(2, retryCount) * 1000 // 1s, 2s, 4s
+        console.warn(`⏳ Rate limited by OpenDota. Retrying in ${delayMs}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+        return fetchMatchFromOpenDota(matchId, retryCount + 1)
+      }
+
+      console.error(`❌ Rate limited for match ${matchId} after 3 retries.`)
       console.error('🎮 TIP: Use "DEMO" as the Match ID to test with sample data!')
       console.error('Or wait a few minutes before trying again.')
-      return null
+      throw new Error('Rate limit exceeded - please try again later')
     }
     // For any other error, log it but return null instead of throwing
     console.error('Error fetching from OpenDota:', error.message)
@@ -254,4 +266,51 @@ export function hasTimelineData(matchData: any): boolean {
     (matchData.players[0].lh_t && matchData.players[0].lh_t.length > 0)
 
   return hasTeamfights || hasPlayerTimeline
+}
+
+// Fetch player's recent matches from OpenDota
+export async function fetchPlayerMatches(accountId: number, limit: number = 20): Promise<any[]> {
+  try {
+    console.log(`Fetching recent matches for account ID ${accountId}...`)
+
+    const config: any = {
+      headers: {
+        'User-Agent': 'Dota2CoachAnalyzer/1.0',
+        'Accept': 'application/json',
+      },
+      timeout: 10000,
+      params: {
+        limit,
+      },
+    }
+
+    // Add API key if available
+    const apiKey = process.env.OPENDOTA_API_KEY
+    if (apiKey && apiKey.trim()) {
+      config.params.api_key = apiKey
+    }
+
+    const response = await axios.get(
+      `${OPENDOTA_API_BASE}/players/${accountId}/matches`,
+      config
+    )
+
+    if (response.status === 200 && response.data) {
+      console.log(`Successfully fetched ${response.data.length} matches for account ${accountId}`)
+      return response.data
+    }
+
+    return []
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      console.error(`Player ${accountId} not found on OpenDota`)
+      return []
+    }
+    if (error.response?.status === 429) {
+      console.error('Rate limited when fetching player matches')
+      return []
+    }
+    console.error('Error fetching player matches:', error.message)
+    return []
+  }
 }

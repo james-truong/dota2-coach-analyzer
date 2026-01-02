@@ -3,11 +3,32 @@ import MatchIdInput from './pages/MatchIdInput'
 import PlayerSelection from './pages/PlayerSelection'
 import AnalysisPage from './pages/AnalysisPage'
 import MatchHistory from './pages/MatchHistory'
+import ProfilePage from './pages/ProfilePage'
+import ImprovementPage from './pages/ImprovementPage'
+import SteamLoginButton from './components/SteamLoginButton'
+
+interface SteamUser {
+  id: string // Database UUID
+  steamId: string
+  accountId: number
+  displayName: string
+  avatar: string
+  profileUrl: string
+}
 
 function App() {
-  const [currentView, setCurrentView] = useState<'input' | 'playerSelection' | 'analysis' | 'history'>('input')
+  const [currentView, setCurrentView] = useState<'input' | 'playerSelection' | 'analysis' | 'history' | 'profile' | 'improvement'>('improvement')
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
   const [selectedPlayerSlot, setSelectedPlayerSlot] = useState<number | null>(null)
+  const [user, setUser] = useState<SteamUser | null>(null)
+
+  // When user logs in/out, adjust default view
+  const handleLoginSuccess = (loggedInUser: SteamUser) => {
+    setUser(loggedInUser)
+    if (currentView === 'input') {
+      setCurrentView('improvement')
+    }
+  }
 
   const handleMatchIdSubmit = (matchId: string) => {
     setSelectedMatchId(matchId)
@@ -46,27 +67,53 @@ function App() {
                 Dota 2 Coach Analyzer
               </h1>
             </div>
-            <div className="flex space-x-4">
-              <button
-                onClick={handleBackToInput}
-                className={`px-4 py-2 rounded-md ${
-                  currentView === 'input'
-                    ? 'bg-dota-blue text-white'
-                    : 'text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                Analyze
-              </button>
-              <button
-                onClick={() => setCurrentView('history')}
-                className={`px-4 py-2 rounded-md ${
-                  currentView === 'history'
-                    ? 'bg-dota-blue text-white'
-                    : 'text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                My Matches
-              </button>
+            <div className="flex items-center space-x-4">
+              {user ? (
+                <>
+                  <button
+                    onClick={() => setCurrentView('improvement')}
+                    className={`px-4 py-2 rounded-md ${
+                      currentView === 'improvement'
+                        ? 'bg-dota-blue text-white'
+                        : 'text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    Improvement
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('history')}
+                    className={`px-4 py-2 rounded-md ${
+                      currentView === 'history'
+                        ? 'bg-dota-blue text-white'
+                        : 'text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    My Matches
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('profile')}
+                    className={`px-4 py-2 rounded-md ${
+                      currentView === 'profile'
+                        ? 'bg-dota-blue text-white'
+                        : 'text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    Profile
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setCurrentView('input')}
+                  className={`px-4 py-2 rounded-md ${
+                    currentView === 'input'
+                      ? 'bg-dota-blue text-white'
+                      : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  Try It Out
+                </button>
+              )}
+              <SteamLoginButton onLoginSuccess={handleLoginSuccess} />
             </div>
           </div>
         </div>
@@ -76,8 +123,14 @@ function App() {
         {currentView === 'input' && (
           <MatchIdInput onAnalysisStart={handleMatchIdSubmit} />
         )}
+        {currentView === 'improvement' && (
+          <ImprovementPage user={user} />
+        )}
         {currentView === 'history' && (
-          <MatchHistory onMatchSelect={handleHistoryMatchSelect} />
+          <MatchHistory onMatchSelect={handleHistoryMatchSelect} user={user} />
+        )}
+        {currentView === 'profile' && (
+          <ProfilePage user={user} />
         )}
         {currentView === 'playerSelection' && selectedMatchId && (
           <PlayerSelection

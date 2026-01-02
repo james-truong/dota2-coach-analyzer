@@ -2,7 +2,11 @@
 import { fetchMatchFromOpenDota, getPlayerHeroName, getGameModeName, getLobbyTypeName, isRadiantPlayer, hasTimelineData, requestMatchParsing } from './openDotaService.js'
 import { getHeroImageUrl } from './heroDataService.js'
 import { analyzePlayerPerformance, analyzeTimelineInsights, generateAnalysisSummary } from './analysisService.js'
-import { saveMatchAnalysis } from './databaseService.js'
+import { generateAICoachingInsights } from './aiCoachingService.js'
+import { saveMatchAnalysis, getCachedMatchAnalysis } from './databaseService.js'
+import { updateHeroStatistics } from './heroStatisticsService.js'
+import { analyzeItemBuild } from './itemBuildService.js'
+import { extractKeyMoments, generateReplayDeepLink, generateOpenDotaLink } from './keyMomentsService.js'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function getMatchPlayers(matchId: string): Promise<any | null> {
@@ -39,8 +43,86 @@ export async function getMatchPlayers(matchId: string): Promise<any | null> {
   }
 }
 
-export async function getMatchAnalysis(matchId: string, playerSlot?: number): Promise<any | null> {
-  console.log(`Fetching analysis for match: ${matchId}`)
+export async function getMatchAnalysis(matchId: string, playerSlot?: number, currentUser?: any): Promise<any | null> {
+  console.log(`Fetching analysis for match: ${matchId}${currentUser ? ` (User: ${currentUser})` : ''}`)
+
+  // If player slot is specified, check if we've already analyzed this match
+  if (playerSlot !== undefined) {
+    const cachedAnalysis = await getCachedMatchAnalysis(matchId, playerSlot)
+
+    if (cachedAnalysis) {
+      console.log(`💾 Cache HIT! Returning cached analysis for match ${matchId} (player slot ${playerSlot})`)
+      console.log(`💰 SAVED ~$0.03 CAD by skipping AI analysis!`)
+
+      // Return fully cached data without any AI calls
+      return {
+        match: {
+          id: matchId,
+          userId: null,
+          matchId: cachedAnalysis.matchId,
+          gameMode: cachedAnalysis.gameMode,
+          lobbyType: 'Ranked',
+          duration: cachedAnalysis.duration,
+          radiantWin: cachedAnalysis.radiantWin,
+          startTime: null,
+          analysisStatus: 'completed',
+          parsedAt: cachedAnalysis.analyzedAt,
+          createdAt: cachedAnalysis.analyzedAt,
+        },
+        playerPerformance: {
+          id: cachedAnalysis.id,
+          matchId,
+          isPrimaryPlayer: true,
+          heroId: cachedAnalysis.heroId,
+          heroName: cachedAnalysis.heroName,
+          heroImage: getHeroImageUrl(cachedAnalysis.heroId),
+          playerSlot: cachedAnalysis.playerSlot,
+          team: cachedAnalysis.team,
+          detectedRole: cachedAnalysis.detectedRole,
+          kills: cachedAnalysis.kills,
+          deaths: cachedAnalysis.deaths,
+          assists: cachedAnalysis.assists,
+          lastHits: cachedAnalysis.lastHits,
+          denies: cachedAnalysis.denies,
+          goldPerMin: cachedAnalysis.goldPerMin,
+          xpPerMin: cachedAnalysis.xpPerMin,
+          heroDamage: cachedAnalysis.heroDamage,
+          towerDamage: cachedAnalysis.towerDamage,
+          heroHealing: cachedAnalysis.heroHealing,
+          level: cachedAnalysis.level,
+          netWorth: cachedAnalysis.netWorth,
+          campsStacked: cachedAnalysis.campsStacked || 0,
+          runesPickedUp: 0,
+          observerWardsPlaced: cachedAnalysis.obsPlaced || 0,
+          sentryWardsPlaced: cachedAnalysis.senPlaced || 0,
+          wardsDestroyed: 0,
+          stunsDuration: 0,
+          finalItems: [],
+        },
+        insights: [],
+        summary: {
+          strengths: ['Previously analyzed match - stats loaded from cache'],
+          weaknesses: [],
+          keyRecommendation: `Match analyzed on ${new Date(cachedAnalysis.analyzedAt).toLocaleDateString()}. View "My Matches" for full history.`,
+        },
+        itemBuild: {
+          items: [],
+          score: 7,
+          keyIssues: [],
+          positives: ['Cached analysis - full item analysis not stored'],
+        },
+        keyMoments: {
+          moments: [],
+          topMoments: [],
+          deepLink: generateReplayDeepLink(matchId),
+          openDotaLink: generateOpenDotaLink(matchId),
+        },
+        cached: true,
+      }
+    }
+  }
+
+  console.log(`🔍 No cache found - performing full analysis for match ${matchId}`)
 
   // Fetch match data from OpenDota API
   const matchData = await fetchMatchFromOpenDota(matchId)
@@ -72,8 +154,8 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number): Pr
     }
   }
 
-  // Analyze player performance
-  const insights = analyzePlayerPerformance(
+  // Analyze player performance to get detected role
+  const performanceAnalysis = await analyzePlayerPerformance(
     {
       heroId: targetPlayer.hero_id,
       playerSlot: targetPlayer.player_slot,
@@ -94,36 +176,82 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number): Pr
       laneRole: targetPlayer.lane_role,
     },
     matchData.duration,
-    isRadiant
+    isRadiant,
+    heroName
   )
+  const detectedRole = performanceAnalysis.detectedRole
 
-  // Analyze timeline insights
-  const timelineData = {
-    killsLog: targetPlayer.kills_log,
-    goldTimeline: targetPlayer.gold_t,
-    xpTimeline: targetPlayer.xp_t,
-    lhTimeline: targetPlayer.lh_t,
-    teamfights: matchData.teamfights,
-  }
-  console.log('Timeline data:', {
-    killsLogCount: timelineData.killsLog?.length || 0,
-    lhTimelineCount: timelineData.lhTimeline?.length || 0,
-    teamfightsCount: timelineData.teamfights?.length || 0,
+  // Generate AI-powered coaching insights
+  const aiInsights = await generateAICoachingInsights({
+    heroName,
+    team: isRadiant ? 'radiant' : 'dire',
+    detectedRole,
+    kills: targetPlayer.kills,
+    deaths: targetPlayer.deaths,
+    assists: targetPlayer.assists,
+    lastHits: targetPlayer.last_hits,
+    denies: targetPlayer.denies,
+    goldPerMin: targetPlayer.gold_per_min,
+    xpPerMin: targetPlayer.xp_per_min,
+    level: targetPlayer.level,
+    heroDamage: targetPlayer.hero_damage,
+    towerDamage: targetPlayer.tower_damage,
+    heroHealing: targetPlayer.hero_healing || 0,
+    netWorth: targetPlayer.net_worth,
+    observerWardsPlaced: targetPlayer.obs_placed || 0,
+    sentryWardsPlaced: targetPlayer.sen_placed || 0,
+    campsStacked: targetPlayer.camps_stacked || 0,
+    duration: matchData.duration,
+    gameMode: getGameModeName(matchData.game_mode),
+    radiantWin: matchData.radiant_win,
   })
-  const timelineInsights = analyzeTimelineInsights(
-    timelineData,
-    targetPlayer.player_slot,
-    matchData.duration
+
+  // Fallback to rule-based insights if AI fails
+  const allInsights = aiInsights.length > 0 ? aiInsights : performanceAnalysis.insights
+
+  // Analyze item build
+  const playerWon = (isRadiant && matchData.radiant_win) || (!isRadiant && !matchData.radiant_win)
+  const itemBuildAnalysis = analyzeItemBuild(
+    heroName,
+    detectedRole,
+    [
+      targetPlayer.item_0,
+      targetPlayer.item_1,
+      targetPlayer.item_2,
+      targetPlayer.item_3,
+      targetPlayer.item_4,
+      targetPlayer.item_5,
+    ].filter((item): item is number => item !== undefined && item !== 0),
+    getGameModeName(matchData.game_mode),
+    matchData.duration,
+    playerWon,
+    {
+      kills: targetPlayer.kills,
+      deaths: targetPlayer.deaths,
+      gpm: targetPlayer.gold_per_min,
+      netWorth: targetPlayer.net_worth,
+    }
   )
-  console.log('Timeline insights generated:', timelineInsights.length)
 
-  // Combine all insights
-  const allInsights = [...insights, ...timelineInsights]
+  // Extract key moments for replay highlights
+  const keyMomentsAnalysis = await extractKeyMoments(matchData, targetPlayer.account_id)
 
-  const summary = generateAnalysisSummary(allInsights)
+  // Combine all insights including item build insights
+  const combinedInsights = [
+    ...allInsights,
+    ...itemBuildAnalysis.insights.map(insight => ({
+      category: insight.category,
+      severity: insight.severity,
+      message: insight.message,
+      suggestion: insight.recommendation || '',
+      impact: insight.severity === 'critical' ? 'high' : insight.severity === 'important' ? 'medium' : 'low',
+    }))
+  ]
+
+  const summary = generateAnalysisSummary(combinedInsights)
 
   // Build response matching AnalysisResult interface
-  const insightsWithIds = allInsights.map(insight => ({
+  const insightsWithIds = combinedInsights.map(insight => ({
     id: uuidv4(),
     matchId: matchId,
     playerPerformanceId: uuidv4(),
@@ -154,6 +282,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number): Pr
       heroImage: getHeroImageUrl(targetPlayer.hero_id),
       playerSlot: targetPlayer.player_slot,
       team: isRadiant ? 'radiant' : 'dire',
+      detectedRole,
       kills: targetPlayer.kills,
       deaths: targetPlayer.deaths,
       assists: targetPlayer.assists,
@@ -179,25 +308,75 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number): Pr
         targetPlayer.item_3,
         targetPlayer.item_4,
         targetPlayer.item_5,
-      ].filter(item => item !== undefined && item !== 0),
+      ].filter((item): item is number => item !== undefined && item !== 0),
     },
     insights: insightsWithIds,
     summary,
+    itemBuild: {
+      items: itemBuildAnalysis.finalItems,
+      score: itemBuildAnalysis.itemScore,
+      keyIssues: itemBuildAnalysis.keyIssues,
+      positives: itemBuildAnalysis.positives,
+    },
+    keyMoments: {
+      moments: keyMomentsAnalysis.moments,
+      topMoments: keyMomentsAnalysis.topMoments,
+      deepLink: generateReplayDeepLink(matchId),
+      openDotaLink: generateOpenDotaLink(matchId),
+    },
   }
 
   // Save to database for match history (fire and forget - don't block response)
   saveMatchAnalysis({
     matchId: matchId,
+    userId: currentUser?.id,
+    accountId: targetPlayer.account_id,
     heroName,
+    heroId: targetPlayer.hero_id,
     heroImage: getHeroImageUrl(targetPlayer.hero_id),
     playerSlot: targetPlayer.player_slot,
+    team: isRadiant ? 'radiant' : 'dire',
+    detectedRole,
     kills: targetPlayer.kills,
     deaths: targetPlayer.deaths,
     assists: targetPlayer.assists,
+    lastHits: targetPlayer.last_hits,
+    denies: targetPlayer.denies,
+    goldPerMin: targetPlayer.gold_per_min,
+    xpPerMin: targetPlayer.xp_per_min,
+    heroDamage: targetPlayer.hero_damage,
+    towerDamage: targetPlayer.tower_damage,
+    heroHealing: targetPlayer.hero_healing,
+    netWorth: targetPlayer.net_worth,
+    level: targetPlayer.level,
+    obsPlaced: targetPlayer.obs_placed,
+    senPlaced: targetPlayer.sen_placed,
+    campsStacked: targetPlayer.camps_stacked,
     gameMode: getGameModeName(matchData.game_mode),
     duration: matchData.duration,
     radiantWin: matchData.radiant_win,
+    won: playerWon,
   }).catch(err => console.error('Failed to save match to database:', err))
+
+  // Update hero statistics (fire and forget - don't block response)
+  updateHeroStatistics({
+    heroName,
+    heroId: targetPlayer.hero_id,
+    duration: matchData.duration,
+    gpm: targetPlayer.gold_per_min,
+    xpm: targetPlayer.xp_per_min,
+    lastHits: targetPlayer.last_hits,
+    denies: targetPlayer.denies,
+    kills: targetPlayer.kills,
+    deaths: targetPlayer.deaths,
+    assists: targetPlayer.assists,
+    heroDamage: targetPlayer.hero_damage,
+    towerDamage: targetPlayer.tower_damage,
+    heroHealing: targetPlayer.hero_healing || 0,
+    observerWardsPlaced: targetPlayer.obs_placed || 0,
+    sentryWardsPlaced: targetPlayer.sen_placed || 0,
+    campsStacked: targetPlayer.camps_stacked || 0,
+  }).catch(err => console.error('Failed to update hero statistics:', err))
 
   return result
 }

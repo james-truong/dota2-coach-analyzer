@@ -28,17 +28,6 @@ interface PlayerSelectionProps {
   onBack: () => void
 }
 
-const getLaneRoleLabel = (laneRole: number | null | undefined): string => {
-  if (!laneRole) return ''
-  const roles: Record<number, string> = {
-    1: 'Pos 1',
-    2: 'Pos 2',
-    3: 'Pos 3',
-    4: 'Pos 4'
-  }
-  return roles[laneRole] || ''
-}
-
 function PlayerSelection({ matchId, onPlayerSelect, onBack }: PlayerSelectionProps) {
   const [matchData, setMatchData] = useState<MatchPlayers | null>(null)
   const [loading, setLoading] = useState(true)
@@ -136,14 +125,7 @@ function PlayerSelection({ matchId, onPlayerSelect, onBack }: PlayerSelectionPro
                       className="w-16 h-16 rounded-lg object-cover"
                     />
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-white font-semibold">{player.heroName}</h4>
-                        {player.laneRole && (
-                          <span className="bg-blue-600/20 text-blue-400 text-xs px-2 py-0.5 rounded border border-blue-600/30">
-                            {getLaneRoleLabel(player.laneRole)}
-                          </span>
-                        )}
-                      </div>
+                      <h4 className="text-white font-semibold">{player.heroName}</h4>
                       <p className="text-gray-400 text-sm">
                         {player.kills}/{player.deaths}/{player.assists}
                       </p>
@@ -181,14 +163,7 @@ function PlayerSelection({ matchId, onPlayerSelect, onBack }: PlayerSelectionPro
                       className="w-16 h-16 rounded-lg object-cover"
                     />
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-white font-semibold">{player.heroName}</h4>
-                        {player.laneRole && (
-                          <span className="bg-blue-600/20 text-blue-400 text-xs px-2 py-0.5 rounded border border-blue-600/30">
-                            {getLaneRoleLabel(player.laneRole)}
-                          </span>
-                        )}
-                      </div>
+                      <h4 className="text-white font-semibold">{player.heroName}</h4>
                       <p className="text-gray-400 text-sm">
                         {player.kills}/{player.deaths}/{player.assists}
                       </p>

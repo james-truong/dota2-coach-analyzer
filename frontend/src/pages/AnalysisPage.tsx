@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import type { AnalysisResult } from '../types'
 import AdBanner from '../components/AdBanner'
+import KeyMomentsTimeline from '../components/KeyMomentsTimeline'
 
 interface AnalysisPageProps {
   matchId: string
@@ -64,7 +65,7 @@ function AnalysisPage({ matchId, playerSlot, onBack }: AnalysisPageProps) {
     )
   }
 
-  const { match, playerPerformance, insights, summary } = analysis
+  const { match, playerPerformance, insights, summary, itemBuild } = analysis
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -90,9 +91,20 @@ function AnalysisPage({ matchId, playerSlot, onBack }: AnalysisPageProps) {
               />
             )}
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">
-                {playerPerformance.heroName}
-              </h2>
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-3xl font-bold text-white">
+                  {playerPerformance.heroName}
+                </h2>
+                {playerPerformance.detectedRole && (
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    playerPerformance.detectedRole === 'Core'
+                      ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                      : 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
+                  }`}>
+                    {playerPerformance.detectedRole}
+                  </span>
+                )}
+              </div>
               <p className="text-gray-400">
                 {match.gameMode} • {Math.floor(match.duration / 60)}:{(match.duration % 60).toString().padStart(2, '0')} •{' '}
                 <span className={match.radiantWin ? 'text-dota-green' : 'text-dota-red'}>
@@ -162,8 +174,81 @@ function AnalysisPage({ matchId, playerSlot, onBack }: AnalysisPageProps) {
         </div>
       </div>
 
+      {/* Item Build Analysis */}
+      {itemBuild && (
+        <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold text-white">Item Build Analysis</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-sm">Item Score:</span>
+              <span className={`text-2xl font-bold ${
+                itemBuild.score >= 80 ? 'text-green-400' :
+                itemBuild.score >= 60 ? 'text-yellow-400' :
+                'text-red-400'
+              }`}>
+                {itemBuild.score}/100
+              </span>
+            </div>
+          </div>
+
+          {/* Final Items */}
+          <div className="mb-4">
+            <p className="text-gray-400 text-sm mb-2">Final Items:</p>
+            <div className="flex flex-wrap gap-2">
+              {itemBuild.items.map((item: string, index: number) => (
+                <span key={index} className="px-3 py-1 bg-gray-700 rounded text-white text-sm">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Positives */}
+          {itemBuild.positives && itemBuild.positives.length > 0 && (
+            <div className="mb-4">
+              <p className="text-green-400 font-semibold text-sm mb-2">✓ What You Did Well:</p>
+              <ul className="space-y-1">
+                {itemBuild.positives.map((positive: string, index: number) => (
+                  <li key={index} className="text-gray-300 text-sm flex items-start">
+                    <span className="text-green-400 mr-2">•</span>
+                    {positive}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Key Issues */}
+          {itemBuild.keyIssues && itemBuild.keyIssues.length > 0 && (
+            <div>
+              <p className="text-red-400 font-semibold text-sm mb-2">⚠ Areas to Improve:</p>
+              <ul className="space-y-1">
+                {itemBuild.keyIssues.map((issue: string, index: number) => (
+                  <li key={index} className="text-gray-300 text-sm flex items-start">
+                    <span className="text-red-400 mr-2">•</span>
+                    {issue}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Key Moments Timeline */}
+      {analysis.keyMoments && (
+        <KeyMomentsTimeline
+          moments={analysis.keyMoments.moments}
+          topMoments={analysis.keyMoments.topMoments}
+          matchDuration={match.duration}
+          matchId={match.matchId.toString()}
+          deepLink={analysis.keyMoments.deepLink}
+          openDotaLink={analysis.keyMoments.openDotaLink}
+        />
+      )}
+
       {/* Insights List */}
-      <div className="bg-gray-800 rounded-lg p-6">
+      <div className="bg-gray-800 rounded-lg p-6 mt-6">
         <h3 className="text-xl font-bold text-white mb-4">Coaching Insights</h3>
         <div className="space-y-4">
           {insights.length === 0 ? (
@@ -171,42 +256,64 @@ function AnalysisPage({ matchId, playerSlot, onBack }: AnalysisPageProps) {
               Great game! No major issues detected.
             </p>
           ) : (
-            insights.map((insight) => (
-              <div
-                key={insight.id}
-                className={`border-l-4 p-4 rounded ${
-                  insight.severity === 'critical'
-                    ? 'border-red-500 bg-red-900/20'
-                    : insight.severity === 'high'
-                    ? 'border-orange-500 bg-orange-900/20'
-                    : insight.severity === 'medium'
-                    ? 'border-yellow-500 bg-yellow-900/20'
-                    : 'border-blue-500 bg-blue-900/20'
-                }`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-semibold text-white">{insight.title}</h4>
-                  {insight.gameTime && (
-                    <span className="text-gray-400 text-sm">
-                      {Math.floor(insight.gameTime / 60)}:{(insight.gameTime % 60).toString().padStart(2, '0')}
-                    </span>
+            insights.map((insight) => {
+              // Handle both AI insights format and item build insights format
+              const title = insight.title || insight.category || 'Insight'
+              const description = insight.description || insight.message || ''
+              const recommendation = insight.recommendation || insight.suggestion || ''
+
+              // Skip insights with no meaningful content
+              if (!description && !recommendation) {
+                return null
+              }
+
+              return (
+                <div
+                  key={insight.id}
+                  className={`border-l-4 p-4 rounded ${
+                    insight.severity === 'critical'
+                      ? 'border-red-500 bg-red-900/20'
+                      : insight.severity === 'high'
+                      ? 'border-orange-500 bg-orange-900/20'
+                      : insight.severity === 'medium'
+                      ? 'border-yellow-500 bg-yellow-900/20'
+                      : insight.severity === 'important'
+                      ? 'border-yellow-500 bg-yellow-900/20'
+                      : 'border-blue-500 bg-blue-900/20'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold text-white">{title}</h4>
+                    {insight.gameTime && (
+                      <span className="text-gray-400 text-sm">
+                        {Math.floor(insight.gameTime / 60)}:{(insight.gameTime % 60).toString().padStart(2, '0')}
+                      </span>
+                    )}
+                  </div>
+                  {description && (
+                    <p className="text-gray-300 text-sm mb-2">{description}</p>
+                  )}
+                  {recommendation && (
+                    <div className="bg-gray-900/50 rounded p-3 mt-2">
+                      <p className="text-sm text-gray-400 mb-1">💡 Recommendation:</p>
+                      <p className="text-sm text-gray-200">{recommendation}</p>
+                    </div>
+                  )}
+                  {insight.category && (
+                    <div className="mt-2 flex gap-2">
+                      <span className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
+                        {insight.category}
+                      </span>
+                      {insight.insightType && (
+                        <span className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
+                          {insight.insightType}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-                <p className="text-gray-300 text-sm mb-2">{insight.description}</p>
-                <div className="bg-gray-900/50 rounded p-3 mt-2">
-                  <p className="text-sm text-gray-400 mb-1">💡 Recommendation:</p>
-                  <p className="text-sm text-gray-200">{insight.recommendation}</p>
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <span className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
-                    {insight.category}
-                  </span>
-                  <span className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
-                    {insight.insightType}
-                  </span>
-                </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       </div>

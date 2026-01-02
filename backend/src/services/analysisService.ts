@@ -1,6 +1,7 @@
 // Simple mistake detection logic based on stats
 // This will evolve into more sophisticated analysis over time
-import { getHeroRoles, getHeroName } from './heroDataService.js'
+
+import { getHeroStatistics, type HeroStats } from './heroStatisticsService.js'
 
 interface PlayerStats {
   heroId: number
@@ -58,111 +59,68 @@ interface TimelineData {
   teamfights?: TeamfightData[]
 }
 
-export function analyzePlayerPerformance(
+export interface AnalysisResult {
+  insights: Insight[]
+  detectedRole: 'Core' | 'Support'
+}
+
+export async function analyzePlayerPerformance(
   stats: PlayerStats,
   duration: number,
-  isRadiant: boolean
-): Insight[] {
+  isRadiant: boolean,
+  heroName: string
+): Promise<AnalysisResult> {
   const insights: Insight[] = []
   const durationMinutes = duration / 60
 
-  // Determine role based on player slot (simplified)
-  const isCore = stats.playerSlot % 128 < 3 // Slots 0-2 or 128-130 are typically cores
+  // Try to get hero-specific benchmarks
+  const heroStats = await getHeroStatistics(heroName)
+
+  // Smart role detection based on actual gameplay stats
+  // This is much more accurate than slot-based detection
+  // A player is considered a core if they:
+  // - Have high GPM (> 350), OR
+  // - Have decent farm (> 3 CS/min)
+  const csPerMin = stats.lastHits / durationMinutes
+  const isCore = stats.goldPerMin > 350 || csPerMin > 3
   const isSupport = !isCore
-
-  // 0. Hero-Role Mismatch Detection (Smart)
-  if (stats.laneRole && stats.heroId) {
-    const heroRoles = getHeroRoles(stats.heroId)
-    const heroName = getHeroName(stats.heroId)
-
-    // Infer actual position from lane_role + stats
-    // lane_role tells us WHERE they laned, not WHAT position they played
-    let actualPosition: number = stats.laneRole
-
-    // Smart detection: If in safe lane (lane_role 1), distinguish carry from support
-    if (stats.laneRole === 1) {
-      const isLikelySupport =
-        heroRoles.includes('Support') || // Hero is tagged as support
-        (stats.goldPerMin < 300 && (stats.obsPlaced || 0) > 2) || // Low farm + wards
-        (stats.lastHits < durationMinutes * 2) // Very low CS (< 2/min)
-
-      if (isLikelySupport) {
-        actualPosition = 5 // This is Position 5 (Hard Support), not Position 1
-      }
-    }
-
-    // Similarly for offlane (lane_role 3), could be Pos 3 or Pos 4 roaming
-    if (stats.laneRole === 3) {
-      const isLikelySupport =
-        heroRoles.includes('Support') &&
-        stats.goldPerMin < 350 &&
-        (stats.obsPlaced || 0) > 1
-
-      if (isLikelySupport) {
-        actualPosition = 4 // Position 4 (Soft Support)
-      }
-    }
-
-    const positionNames: Record<number, string> = {
-      1: 'Position 1 (Safe Lane Carry)',
-      2: 'Position 2 (Mid Lane)',
-      3: 'Position 3 (Off Lane)',
-      4: 'Position 4 (Soft Support)',
-      5: 'Position 5 (Hard Support)'
-    }
-
-    const expectedRolesForPosition: Record<number, string[]> = {
-      1: ['Carry', 'Nuker'],  // Pos 1 needs scaling carries
-      2: ['Nuker', 'Initiator', 'Disabler'],  // Pos 2 needs playmakers
-      3: ['Durable', 'Initiator', 'Disabler'],  // Pos 3 needs tanky initiators
-      4: ['Support', 'Disabler', 'Initiator'],  // Pos 4 needs utility
-      5: ['Support', 'Disabler', 'Nuker']  // Pos 5 needs babysitters
-    }
-
-    const positionName = positionNames[actualPosition]
-    const expectedRoles = expectedRolesForPosition[actualPosition]
-
-    if (positionName && expectedRoles && heroRoles.length > 0) {
-      // Check if hero has at least one expected role for this position
-      const hasMatchingRole = heroRoles.some(role => expectedRoles.includes(role))
-      const primaryHeroRole = heroRoles[0]  // First role is primary
-
-      if (!hasMatchingRole) {
-        // Hero role doesn't match the actual position
-        insights.push({
-          insightType: 'mistake',
-          category: 'decision_making',
-          severity: 'high',
-          title: 'Hero-role mismatch detected',
-          description: `${heroName} is primarily a ${primaryHeroRole} hero, but you played it in ${positionName}. This hero's strengths (${heroRoles.slice(0, 3).join(', ')}) don't align well with this position's requirements.`,
-          recommendation: `For ${positionName}, consider heroes with these traits: ${expectedRoles.join(', ')}. ${heroName} would be better suited for a different position that matches its ${primaryHeroRole} role.`
-        })
-      }
-    }
-  }
+  const detectedRole: 'Core' | 'Support' = isCore ? 'Core' : 'Support'
 
   // 1. Farm Efficiency Check (for cores)
   if (isCore) {
-    const expectedLastHits = durationMinutes * 7 // ~7 CS/min is average
-    if (stats.lastHits < expectedLastHits * 0.6) {
+    // Use hero-specific benchmarks if available, otherwise fall back to generic thresholds
+    const avgCsPerMin = heroStats?.avgCsPerMin || 7
+    const avgGpm = heroStats?.avgGpm || 500
+    const expectedCsPerMin = avgCsPerMin * 0.85 // 85% of hero average is the minimum acceptable
+
+    if (csPerMin < expectedCsPerMin) {
+      const comparisonText = heroStats
+        ? `For ${heroName}, the average is ${avgCsPerMin.toFixed(1)} CS/min based on ${heroStats.totalMatches} analyzed matches`
+        : 'For a core player, aim for at least 5-6 CS/min'
+
       insights.push({
         insightType: 'mistake',
         category: 'farm_efficiency',
         severity: 'high',
         title: 'Low last hit count for a core role',
-        description: `You only secured ${stats.lastHits} last hits in ${Math.floor(durationMinutes)} minutes (${(stats.lastHits / durationMinutes).toFixed(1)} CS/min). For a core player, aim for at least 5-6 CS/min.`,
+        description: `You only secured ${stats.lastHits} last hits in ${Math.floor(durationMinutes)} minutes (${csPerMin.toFixed(1)} CS/min). ${comparisonText}.`,
         recommendation: 'Focus on last hitting in lane and utilize jungle camps between waves. Practice last hit training in demo mode.',
       })
     }
 
-    // GPM check for cores
-    if (stats.goldPerMin < 400) {
+    // GPM check for cores using hero-specific benchmarks
+    const minAcceptableGpm = avgGpm * 0.8 // 80% of hero average
+    if (stats.goldPerMin < minAcceptableGpm) {
+      const comparisonText = heroStats
+        ? `For ${heroName}, average GPM is ${Math.round(avgGpm)} based on ${heroStats.totalMatches} matches`
+        : 'target: 500+ for core roles'
+
       insights.push({
         insightType: 'mistake',
         category: 'farm_efficiency',
         severity: 'medium',
         title: 'Low gold per minute',
-        description: `Your GPM was ${stats.goldPerMin}, which is below average for core roles (target: 500+).`,
+        description: `Your GPM was ${stats.goldPerMin}, which is below average (${comparisonText}).`,
         recommendation: 'Minimize downtime between farming waves and camps. Look for opportunities to take towers and participate in kills.',
       })
     }
@@ -246,18 +204,27 @@ export function analyzePlayerPerformance(
     })
   }
 
-  if (isCore && stats.lastHits > durationMinutes * 8) {
+  // Use hero-specific benchmarks for positive feedback
+  const excellentCsThreshold = heroStats?.avgCsPerMin ? heroStats.avgCsPerMin * 1.2 : 8
+  if (isCore && csPerMin > excellentCsThreshold) {
+    const comparisonText = heroStats
+      ? `well above the ${heroName} average of ${heroStats.avgCsPerMin.toFixed(1)} CS/min`
+      : 'very strong farming'
+
     insights.push({
       insightType: 'good_play',
       category: 'farm_efficiency',
       severity: 'low',
       title: 'Excellent farming',
-      description: `${stats.lastHits} last hits (${(stats.lastHits / durationMinutes).toFixed(1)} CS/min) is very strong farming.`,
+      description: `${stats.lastHits} last hits (${csPerMin.toFixed(1)} CS/min) is ${comparisonText}.`,
       recommendation: 'Convert your farm advantage into objectives. Push towers and control the map.',
     })
   }
 
-  return insights
+  return {
+    insights,
+    detectedRole
+  }
 }
 
 export function analyzeTimelineInsights(
