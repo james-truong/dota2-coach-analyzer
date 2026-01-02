@@ -28,7 +28,6 @@ function KeyMomentsTimeline({
   topMoments,
   matchDuration,
   matchId,
-  deepLink,
   openDotaLink,
 }: KeyMomentsTimelineProps) {
   const [selectedMoment, setSelectedMoment] = useState<KeyMoment | null>(null)

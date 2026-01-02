@@ -106,13 +106,6 @@ function ImprovementPage({ user }: ImprovementPageProps) {
     }
   }
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
   const formatChange = (value: number): string => {
     if (value > 0) return `+${value.toFixed(1)}%`
     return `${value.toFixed(1)}%`
