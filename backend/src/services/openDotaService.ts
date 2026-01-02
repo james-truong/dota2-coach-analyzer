@@ -41,6 +41,7 @@ interface OpenDotaPlayer {
   item_3?: number
   item_4?: number
   item_5?: number
+  lane_role?: number
 }
 
 export async function fetchMatchFromOpenDota(matchId: string, retryCount: number = 0): Promise<OpenDotaMatch | null> {

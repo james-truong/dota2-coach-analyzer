@@ -237,17 +237,20 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
   const keyMomentsAnalysis = await extractKeyMoments(matchData, targetPlayer.account_id)
 
   // Combine all insights including item build insights
-  const combinedInsights = [
-    ...allInsights,
-    ...itemBuildAnalysis.insights.map(insight => ({
-      category: insight.category,
-      severity: insight.severity,
-      message: insight.message,
-      suggestion: insight.recommendation || '',
-      impact: insight.severity === 'critical' ? 'high' : insight.severity === 'important' ? 'medium' : 'low',
-    }))
-  ]
+  // Transform item build insights to match the Insight interface
+  const itemBuildInsights = itemBuildAnalysis.insights.map(insight => {
+    const mappedInsight: any = {
+      insightType: (insight.severity === 'critical' || insight.severity === 'important') ? 'mistake' : 'missed_opportunity',
+      category: 'itemization',
+      severity: insight.severity === 'critical' ? 'critical' : insight.severity === 'important' ? 'high' : 'medium',
+      title: insight.category,
+      description: insight.message,
+      recommendation: insight.recommendation || '',
+    }
+    return mappedInsight
+  })
 
+  const combinedInsights: any[] = [...allInsights, ...itemBuildInsights]
   const summary = generateAnalysisSummary(combinedInsights)
 
   // Build response matching AnalysisResult interface
