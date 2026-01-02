@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+
 interface SteamUser {
   id: string // Database UUID
   steamId: string
@@ -88,14 +90,14 @@ function ImprovementPage({ user }: ImprovementPageProps) {
 
       // Fetch improvement metrics
       const metricsRes = await fetch(
-        `http://localhost:5001/api/improvement/metrics?userId=${user.id}&daysBack=${timeRange}`
+        `${API_BASE}/api/improvement/metrics?userId=${user.id}&daysBack=${timeRange}`
       )
       const metricsData = await metricsRes.json()
       setMetrics(metricsData)
 
       // Fetch weekly focus
       const focusRes = await fetch(
-        `http://localhost:5001/api/improvement/weekly-focus?userId=${user.id}`
+        `${API_BASE}/api/improvement/weekly-focus?userId=${user.id}`
       )
       const focusData = await focusRes.json()
       setWeeklyFocus(focusData)
