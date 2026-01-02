@@ -29,7 +29,8 @@
     "passport": "^0.7.0",
     "passport-steam": "^1.0.18",
     "pg": "^8.11.3",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "typescript": "^5.3.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -40,7 +41,6 @@
     "@types/passport-steam": "^1.0.6",
     "@types/pg": "^8.10.9",
     "@types/uuid": "^9.0.7",
-    "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "tsx": "^4.7.0"
   }
 }
