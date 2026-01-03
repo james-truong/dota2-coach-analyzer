@@ -415,11 +415,30 @@ export async function initializeDatabase(): Promise<void> {
     )
   `
 
+  const createPlayerHabitsTableQuery = `
+    CREATE TABLE IF NOT EXISTS player_habits (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      habit_type VARCHAR(50) NOT NULL,
+      category VARCHAR(50) NOT NULL,
+      occurrences INTEGER DEFAULT 1,
+      first_detected_at TIMESTAMP DEFAULT NOW(),
+      last_detected_at TIMESTAMP DEFAULT NOW(),
+      status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'improving', 'resolved')),
+      improvement_percentage DECIMAL(5, 2) DEFAULT 0,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, habit_type)
+    )
+  `
+
   try {
     await getPool().query(createUsersTableQuery)
     await getPool().query(createMatchesTableQuery)
     await getPool().query(createHeroStatsTableQuery)
     await getPool().query(createPlayerStatsTableQuery)
+    await getPool().query(createPlayerHabitsTableQuery)
     console.log('✓ Database tables initialized')
   } catch (error) {
     console.error('Error initializing database:', error)
