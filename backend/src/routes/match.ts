@@ -1,6 +1,7 @@
 import express from 'express'
 import { getMatchAnalysis, getUserMatches, getMatchPlayers } from '../services/matchService.js'
 import { getRecentMatches } from '../services/databaseService.js'
+import { verifyToken } from '../services/jwtService.js'
 
 const router = express.Router()
 
@@ -72,8 +73,13 @@ router.get('/:matchId/analysis', async (req, res, next) => {
     const { matchId } = req.params
     const { playerSlot } = req.query
 
-    // Get current user if authenticated
-    const currentUser = req.isAuthenticated() ? (req.user as any) : null
+    // Get current user if authenticated via JWT
+    let currentUser = null
+    const authHeader = req.headers.authorization
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      currentUser = verifyToken(token)
+    }
 
     const playerSlotNum = playerSlot ? parseInt(playerSlot as string) : undefined
     const analysis = await getMatchAnalysis(matchId, playerSlotNum, currentUser)

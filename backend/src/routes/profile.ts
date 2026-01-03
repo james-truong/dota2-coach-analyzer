@@ -1,17 +1,33 @@
 import express from 'express'
 import { getPlayerProfile, getUserMatchHistory } from '../services/playerProfileService.js'
 import { backfillUserMatches } from '../services/matchHistoryService.js'
+import { verifyToken } from '../services/jwtService.js'
 
 const router = express.Router()
 
-// Middleware to check if user is authenticated
+// Middleware to check if user is authenticated via JWT
 function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
-  if (!req.isAuthenticated()) {
+  const authHeader = req.headers.authorization
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'You must be logged in to access this resource',
     })
   }
+
+  const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+  const user = verifyToken(token)
+
+  if (!user) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid or expired token',
+    })
+  }
+
+  // Attach user to request object
+  req.user = user
   next()
 }
 

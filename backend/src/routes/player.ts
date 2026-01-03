@@ -1,6 +1,7 @@
 import express from 'express'
 import { fetchPlayerMatches } from '../services/openDotaService.js'
 import { getHeroName, getHeroImageUrl } from '../services/heroDataService.js'
+import { verifyToken } from '../services/jwtService.js'
 
 const router = express.Router()
 
@@ -29,14 +30,22 @@ router.get('/:accountId/matches', async (req, res, next) => {
   }
 })
 
-// Get logged-in player's recent matches (requires authentication)
+// Get logged-in player's recent matches (requires JWT authentication)
 router.get('/me/matches', async (req, res, next) => {
   try {
-    if (!req.isAuthenticated()) {
+    const authHeader = req.headers.authorization
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Not authenticated' })
     }
 
-    const user = req.user as any
+    const token = authHeader.substring(7)
+    const user = verifyToken(token)
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid or expired token' })
+    }
+
     const limit = parseInt(req.query.limit as string) || 20
 
     const matches = await fetchPlayerMatches(user.accountId, limit)
