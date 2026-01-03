@@ -26,13 +26,23 @@ const app = express()
 const PORT = parseInt(process.env.PORT || '5000', 10)
 
 // Configure Steam authentication
-const realm = process.env.BACKEND_URL || `http://localhost:${PORT}`
+// Ensure BACKEND_URL has https:// prefix for production
+let backendUrl = process.env.BACKEND_URL || `http://localhost:${PORT}`
+if (backendUrl && !backendUrl.startsWith('http://') && !backendUrl.startsWith('https://')) {
+  backendUrl = `https://${backendUrl}`
+}
+const realm = backendUrl
 const returnURL = `${realm}/api/auth/steam/return`
 configureSteamAuth(realm, returnURL)
 
 // Middleware
+// Ensure FRONTEND_URL has https:// prefix for production
+let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+if (frontendUrl && !frontendUrl.startsWith('http://') && !frontendUrl.startsWith('https://')) {
+  frontendUrl = `https://${frontendUrl}`
+}
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: frontendUrl,
   credentials: true,
 }))
 app.use(express.json())
@@ -81,5 +91,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`)
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
-  console.log(`🌐 Backend URL: ${process.env.BACKEND_URL || 'http://localhost:' + PORT}`)
+  console.log(`🌐 Backend URL: ${backendUrl}`)
+  console.log(`🎮 Steam OAuth realm: ${realm}`)
+  console.log(`↩️  Frontend URL: ${frontendUrl}`)
 })
