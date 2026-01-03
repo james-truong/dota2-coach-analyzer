@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+
 interface Player {
   playerSlot: number
   heroId: number
@@ -37,7 +39,7 @@ function PlayerSelection({ matchId, onPlayerSelect, onBack }: PlayerSelectionPro
     const fetchPlayers = async () => {
       try {
         setLoading(true)
-        const response = await axios.get(`/api/matches/${matchId}/players`)
+        const response = await axios.get(`${API_BASE}/api/matches/${matchId}/players`)
         setMatchData(response.data)
         setError(null)
       } catch (err: any) {

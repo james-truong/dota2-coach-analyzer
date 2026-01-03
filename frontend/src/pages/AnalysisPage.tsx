@@ -4,6 +4,8 @@ import type { AnalysisResult } from '../types'
 import AdBanner from '../components/AdBanner'
 import KeyMomentsTimeline from '../components/KeyMomentsTimeline'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+
 interface AnalysisPageProps {
   matchId: string
   playerSlot: number
@@ -18,7 +20,7 @@ function AnalysisPage({ matchId, playerSlot, onBack }: AnalysisPageProps) {
   useEffect(() => {
     const fetchAnalysis = async () => {
       try {
-        const response = await axios.get(`/api/matches/${matchId}/analysis?playerSlot=${playerSlot}`)
+        const response = await axios.get(`${API_BASE}/api/matches/${matchId}/analysis?playerSlot=${playerSlot}`)
         setAnalysis(response.data)
       } catch (err: any) {
         if (err.response?.data?.message) {
