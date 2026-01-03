@@ -233,7 +233,7 @@ function ProfilePage({ user }: ProfilePageProps) {
       {/* Recent Performance & Role Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <h2 className="text-xl font-bold text-white mb-4">Recent Performance (Last 20 Analyzed)</h2>
+          <h2 className="text-xl font-bold text-white mb-4">Recent Performance (Up to Last 20 Analyzed)</h2>
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-400">Win Rate</span>
