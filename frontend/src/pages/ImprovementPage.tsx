@@ -87,17 +87,28 @@ function ImprovementPage({ user }: ImprovementPageProps) {
 
     try {
       setLoading(true)
+      const token = localStorage.getItem('auth_token')
 
       // Fetch improvement metrics
       const metricsRes = await fetch(
-        `${API_BASE}/api/improvement/metrics?userId=${user.id}&daysBack=${timeRange}`
+        `${API_BASE}/api/improvement/metrics?userId=${user.id}&daysBack=${timeRange}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
       )
       const metricsData = await metricsRes.json()
       setMetrics(metricsData)
 
       // Fetch weekly focus
       const focusRes = await fetch(
-        `${API_BASE}/api/improvement/weekly-focus?userId=${user.id}`
+        `${API_BASE}/api/improvement/weekly-focus?userId=${user.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
       )
       const focusData = await focusRes.json()
       setWeeklyFocus(focusData)

@@ -83,8 +83,12 @@ function ProfilePage({ user }: ProfilePageProps) {
     }
 
     try {
+      const token = localStorage.getItem('auth_token')
       const response = await axios.get('/api/profile/me', {
         withCredentials: true,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       })
       setProfile(response.data)
       setError(null)
@@ -106,8 +110,12 @@ function ProfilePage({ user }: ProfilePageProps) {
     setRefreshMessage(null)
 
     try {
+      const token = localStorage.getItem('auth_token')
       const response = await axios.post('/api/profile/me/refresh', {}, {
         withCredentials: true,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       })
 
       if (response.data.success) {
