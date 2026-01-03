@@ -208,14 +208,14 @@ function ProfilePage({ user }: ProfilePageProps) {
       {/* Statistics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
-          title="Total Matches"
+          title="Matches Analyzed"
           value={statistics.totalMatches}
           subtitle={`${statistics.totalWins}W - ${statistics.totalLosses}L`}
         />
         <StatCard
           title="Win Rate"
           value={`${statistics.winRate.toFixed(1)}%`}
-          subtitle={statistics.totalMatches > 0 ? 'Overall' : 'No matches yet'}
+          subtitle={statistics.totalMatches > 0 ? 'All analyzed matches' : 'No matches yet'}
           highlight={statistics.winRate >= 50}
         />
         <StatCard
@@ -233,7 +233,7 @@ function ProfilePage({ user }: ProfilePageProps) {
       {/* Recent Performance & Role Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <h2 className="text-xl font-bold text-white mb-4">Recent Performance (Last 20 Games)</h2>
+          <h2 className="text-xl font-bold text-white mb-4">Recent Performance (Last 20 Analyzed)</h2>
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-400">Win Rate</span>
