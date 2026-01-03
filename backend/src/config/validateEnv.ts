@@ -25,6 +25,10 @@ export function validateEnvironment(): void {
     warnings.push('OPENDOTA_API_KEY not set - you will be limited to 60 requests/min (get a free key at https://www.opendota.com/api-keys)')
   }
 
+  if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+    warnings.push('JWT_SECRET not set - using SESSION_SECRET as fallback (recommended to set a separate JWT_SECRET)')
+  }
+
   // Print results
   console.log('\n🔍 Environment Variable Validation:')
 
