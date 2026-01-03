@@ -74,7 +74,7 @@ router.get('/:matchId/analysis', async (req, res, next) => {
     const { playerSlot } = req.query
 
     // Get current user if authenticated via JWT
-    let currentUser = null
+    let currentUser: any = null
     const authHeader = req.headers.authorization
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7)
