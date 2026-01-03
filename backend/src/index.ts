@@ -23,7 +23,7 @@ initializeDatabase()
 initializeHeroData()
 
 const app = express()
-const PORT = process.env.PORT || 5000
+const PORT = parseInt(process.env.PORT || '5000', 10)
 
 // Configure Steam authentication
 const realm = process.env.BACKEND_URL || `http://localhost:${PORT}`
