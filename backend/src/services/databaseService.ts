@@ -153,6 +153,12 @@ export async function getCachedMatchAnalysis(matchId: string, playerSlot: number
 
   const row = result.rows[0]
 
+  // If AI insights are missing (old cache), invalidate cache and force re-analysis
+  if (!row.ai_insights || !row.ai_summary) {
+    console.log(`⚠️  Cache INVALID - Missing AI insights for match ${matchId}. Will re-analyze.`)
+    return null
+  }
+
   // Return the cached match data in the same format as getMatchAnalysis
   return {
     id: row.id,
