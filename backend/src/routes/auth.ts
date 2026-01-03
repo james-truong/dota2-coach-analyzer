@@ -12,7 +12,15 @@ router.get(
   passport.authenticate('steam', { failureRedirect: '/' }),
   (req, res) => {
     // Successful authentication, redirect to frontend
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+    let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+    if (frontendUrl && !frontendUrl.startsWith('http://') && !frontendUrl.startsWith('https://')) {
+      frontendUrl = `https://${frontendUrl}`
+    }
+
+    console.log('✅ Steam auth successful, redirecting to:', frontendUrl)
+    console.log('Session ID:', req.sessionID)
+    console.log('User:', req.user)
+
     res.redirect(`${frontendUrl}?login=success`)
   }
 )
@@ -29,6 +37,11 @@ router.get('/logout', (req, res) => {
 
 // Get current user
 router.get('/me', (req, res) => {
+  console.log('GET /api/auth/me - Session ID:', req.sessionID)
+  console.log('Authenticated:', req.isAuthenticated())
+  console.log('User:', req.user)
+  console.log('Session:', req.session)
+
   if (req.isAuthenticated()) {
     res.json({ user: req.user })
   } else {
