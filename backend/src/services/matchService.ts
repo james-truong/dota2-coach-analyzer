@@ -99,8 +99,8 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
           stunsDuration: 0,
           finalItems: [],
         },
-        insights: [],
-        summary: {
+        insights: cachedAnalysis.aiInsights || [],
+        summary: cachedAnalysis.aiSummary || {
           strengths: ['Previously analyzed match - stats loaded from cache'],
           weaknesses: [],
           keyRecommendation: `Match analyzed on ${new Date(cachedAnalysis.analyzedAt).toLocaleDateString()}. View "My Matches" for full history.`,
@@ -111,7 +111,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
           keyIssues: [],
           positives: ['Cached analysis - full item analysis not stored'],
         },
-        keyMoments: {
+        keyMoments: cachedAnalysis.aiKeyMoments || {
           moments: [],
           topMoments: [],
           deepLink: generateReplayDeepLink(matchId),
@@ -359,6 +359,14 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
     duration: matchData.duration,
     radiantWin: matchData.radiant_win,
     won: playerWon,
+    aiInsights: insightsWithIds,
+    aiSummary: summary,
+    aiKeyMoments: {
+      moments: keyMomentsAnalysis.moments,
+      topMoments: keyMomentsAnalysis.topMoments,
+      deepLink: generateReplayDeepLink(matchId),
+      openDotaLink: generateOpenDotaLink(matchId),
+    },
   }).catch(err => console.error('Failed to save match to database:', err))
 
   // Update hero statistics (fire and forget - don't block response)

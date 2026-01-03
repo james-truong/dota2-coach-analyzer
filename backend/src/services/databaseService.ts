@@ -183,6 +183,10 @@ export async function getCachedMatchAnalysis(matchId: string, playerSlot: number
     radiantWin: row.radiant_win,
     won: row.won,
     analyzedAt: row.analyzed_at,
+    // Include AI insights if they exist
+    aiInsights: row.ai_insights,
+    aiSummary: row.ai_summary,
+    aiKeyMoments: row.ai_key_moments,
   }
 }
 
@@ -215,16 +219,22 @@ export async function saveMatchAnalysis(matchData: {
   duration: number
   radiantWin: boolean
   won: boolean
+  aiInsights?: any[]
+  aiSummary?: any
+  aiKeyMoments?: any
 }): Promise<void> {
   const query = `
     INSERT INTO analyzed_matches
     (match_id, user_id, account_id, hero_name, hero_id, hero_image, player_slot, team, detected_role,
      kills, deaths, assists, last_hits, denies, gold_per_min, xp_per_min, hero_damage, tower_damage,
      hero_healing, net_worth, level, obs_placed, sen_placed, camps_stacked,
-     game_mode, duration, radiant_win, won, analyzed_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, NOW())
+     game_mode, duration, radiant_win, won, ai_insights, ai_summary, ai_key_moments, analyzed_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, NOW())
     ON CONFLICT (match_id, player_slot) DO UPDATE
-    SET analyzed_at = NOW()
+    SET analyzed_at = NOW(),
+        ai_insights = EXCLUDED.ai_insights,
+        ai_summary = EXCLUDED.ai_summary,
+        ai_key_moments = EXCLUDED.ai_key_moments
   `
 
   try {
@@ -257,8 +267,11 @@ export async function saveMatchAnalysis(matchData: {
       matchData.duration,
       matchData.radiantWin,
       matchData.won,
+      matchData.aiInsights ? JSON.stringify(matchData.aiInsights) : null,
+      matchData.aiSummary ? JSON.stringify(matchData.aiSummary) : null,
+      matchData.aiKeyMoments ? JSON.stringify(matchData.aiKeyMoments) : null,
     ])
-    console.log(`Saved match ${matchData.matchId} to database`)
+    console.log(`Saved match ${matchData.matchId} to database with AI insights`)
   } catch (error) {
     console.error('Error saving match to database:', error)
     // Don't throw error - saving to DB is optional
@@ -335,6 +348,11 @@ export async function initializeDatabase(): Promise<void> {
       radiant_win BOOLEAN,
       won BOOLEAN,
       analyzed_at TIMESTAMP DEFAULT NOW(),
+
+      -- AI-generated insights (stored as JSON)
+      ai_insights JSONB,
+      ai_summary JSONB,
+      ai_key_moments JSONB,
 
       UNIQUE(match_id, player_slot)
     )
