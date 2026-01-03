@@ -49,15 +49,16 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 // Session configuration
+const isProduction = process.env.NODE_ENV === 'production'
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'dota2-coach-secret-change-in-production',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // Must be false for localhost HTTP
+      secure: isProduction, // true in production (HTTPS), false in development (HTTP)
       httpOnly: true,
-      sameSite: 'lax', // Important for OAuth redirects
+      sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site in production
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
     },
   })
