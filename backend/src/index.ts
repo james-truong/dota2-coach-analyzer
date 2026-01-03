@@ -52,14 +52,17 @@ app.use(express.urlencoded({ extended: true }))
 const isProduction = process.env.NODE_ENV === 'production'
 app.use(
   session({
+    name: 'dota2coach.sid', // Custom session cookie name
     secret: process.env.SESSION_SECRET || 'dota2-coach-secret-change-in-production',
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // Force session save on every request
+    saveUninitialized: true, // Save new sessions even if unmodified
+    proxy: true, // Trust Railway's proxy
     cookie: {
       secure: isProduction, // true in production (HTTPS), false in development (HTTP)
       httpOnly: true,
       sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site in production
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      domain: isProduction ? undefined : undefined, // Let browser set domain automatically
     },
   })
 )
