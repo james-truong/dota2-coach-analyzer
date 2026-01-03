@@ -48,8 +48,8 @@ export async function autoImportMatches(
 
         console.log(`  Analyzing match ${matchId}...`)
 
-        // Trigger analysis for this match
-        await getMatchAnalysis(matchId, playerSlot, userId)
+        // Trigger analysis for this match (pass user object with id property)
+        await getMatchAnalysis(matchId, playerSlot, { id: userId, accountId })
 
         imported++
         console.log(`  ✓ Match ${matchId} imported successfully (${imported}/${recentMatches.length})`)
