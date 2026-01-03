@@ -44,7 +44,7 @@ export async function getMatchPlayers(matchId: string): Promise<any | null> {
 }
 
 export async function getMatchAnalysis(matchId: string, playerSlot?: number, currentUser?: any): Promise<any | null> {
-  console.log(`Fetching analysis for match: ${matchId}${currentUser ? ` (User: ${currentUser})` : ''}`)
+  console.log(`Fetching analysis for match: ${matchId}${currentUser?.id ? ` (User ID: ${currentUser.id})` : ''}`)
 
   // If player slot is specified, check if we've already analyzed this match
   if (playerSlot !== undefined) {
@@ -390,15 +390,4 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
   }).catch(err => console.error('Failed to update hero statistics:', err))
 
   return result
-}
-
-export async function getUserMatches(
-  userId: string,
-  limit: number = 10,
-  offset: number = 0
-): Promise<any[]> {
-  // TODO: Implement database query to get user matches
-  console.log(`Fetching matches for user: ${userId} (limit: ${limit}, offset: ${offset})`)
-
-  return []
 }

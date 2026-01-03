@@ -310,9 +310,7 @@ export async function getRecentMatches(limit: number = 10): Promise<SavedMatch[]
   `
 
   try {
-    console.log(`Fetching recent matches (limit: ${limit})`)
     const result = await getPool().query(query, [limit])
-    console.log(`Found ${result.rows.length} matches`)
     return result.rows
   } catch (error) {
     console.error('Error fetching recent matches:', error)

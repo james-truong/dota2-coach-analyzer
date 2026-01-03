@@ -1,35 +1,9 @@
 import express from 'express'
-import { getMatchAnalysis, getUserMatches, getMatchPlayers } from '../services/matchService.js'
+import { getMatchAnalysis, getMatchPlayers } from '../services/matchService.js'
 import { getRecentMatches } from '../services/databaseService.js'
 import { verifyToken } from '../services/jwtService.js'
 
 const router = express.Router()
-
-// Debug endpoint to test database directly
-router.get('/history/debug', async (req, res) => {
-  try {
-    const pkg = await import('pg')
-    const { Pool } = pkg.default
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-    })
-
-    const result = await pool.query('SELECT * FROM analyzed_matches ORDER BY analyzed_at DESC LIMIT 10')
-    await pool.end()
-
-    res.json({
-      success: true,
-      count: result.rows.length,
-      data: result.rows
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      stack: error.stack
-    })
-  }
-})
 
 // Get match history
 router.get('/history', async (req, res, next) => {
@@ -100,24 +74,6 @@ router.get('/:matchId/analysis', async (req, res, next) => {
         message: 'OpenDota API is rate limiting or the match is restricted. Please wait a few minutes and try again.'
       })
     }
-    next(error)
-  }
-})
-
-// Get all matches for a user
-router.get('/user/:userId', async (req, res, next) => {
-  try {
-    const { userId } = req.params
-    const { limit = 10, offset = 0 } = req.query
-
-    const matches = await getUserMatches(
-      userId,
-      parseInt(limit as string),
-      parseInt(offset as string)
-    )
-
-    res.json(matches)
-  } catch (error) {
     next(error)
   }
 })
