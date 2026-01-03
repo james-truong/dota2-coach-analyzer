@@ -20,13 +20,32 @@ function SteamLoginButton({ onLoginSuccess }: SteamLoginButtonProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check if we just logged in (token in URL)
+    const urlParams = new URLSearchParams(window.location.search)
+    const token = urlParams.get('token')
+
+    if (token) {
+      // Store token in localStorage
+      localStorage.setItem('auth_token', token)
+      // Remove token from URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+
     checkAuthStatus()
   }, [])
 
   const checkAuthStatus = async () => {
     try {
+      const token = localStorage.getItem('auth_token')
+      if (!token) {
+        setLoading(false)
+        return
+      }
+
       const response = await fetch(`${API_BASE}/api/auth/me`, {
-        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       })
 
       if (response.ok) {
@@ -49,9 +68,7 @@ function SteamLoginButton({ onLoginSuccess }: SteamLoginButtonProps) {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${API_BASE}/api/auth/logout`, {
-        credentials: 'include',
-      })
+      localStorage.removeItem('auth_token')
       setUser(null)
     } catch (error) {
       console.error('Error logging out:', error)
