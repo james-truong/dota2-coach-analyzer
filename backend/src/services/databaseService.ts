@@ -63,12 +63,11 @@ export async function upsertUser(userData: {
   )
   const isFirstLogin = existingUser.rows.length === 0
 
-  // For Steam users, email and password are nullable
   const query = `
-    INSERT INTO users (steam_id, account_id, display_name, avatar, profile_url, last_login, email, password_hash, username)
-    VALUES ($1, $2, $3, $4, $5, NOW(), NULL, NULL, $3)
+    INSERT INTO users (steam_id, account_id, display_name, avatar, profile_url, last_login)
+    VALUES ($1, $2, $3, $4, $5, NOW())
     ON CONFLICT (account_id) DO UPDATE
-    SET steam_id = $1, display_name = $3, avatar = $4, profile_url = $5, last_login = NOW(), username = $3
+    SET steam_id = $1, display_name = $3, avatar = $4, profile_url = $5, last_login = NOW()
     WHERE users.account_id = $2
     RETURNING *
   `
