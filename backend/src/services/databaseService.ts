@@ -229,6 +229,23 @@ export async function saveMatchAnalysis(matchData: {
   aiSummary?: any
   aiKeyMoments?: any
 }): Promise<void> {
+  // If userId is not provided but accountId is, try to look up the user
+  let userId = matchData.userId
+  if (!userId && matchData.accountId) {
+    try {
+      const userResult = await getPool().query(
+        'SELECT id FROM users WHERE account_id = $1',
+        [matchData.accountId]
+      )
+      if (userResult.rows.length > 0) {
+        userId = userResult.rows[0].id
+        console.log(`🔗 Auto-linked match to user ${userId} via account_id ${matchData.accountId}`)
+      }
+    } catch (error) {
+      console.warn('Could not auto-link match to user:', error)
+    }
+  }
+
   const query = `
     INSERT INTO analyzed_matches
     (match_id, user_id, account_id, hero_name, hero_id, hero_image, player_slot, team, detected_role,
@@ -238,6 +255,7 @@ export async function saveMatchAnalysis(matchData: {
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, NOW())
     ON CONFLICT (match_id, player_slot) DO UPDATE
     SET analyzed_at = NOW(),
+        user_id = EXCLUDED.user_id,
         ai_insights = EXCLUDED.ai_insights,
         ai_summary = EXCLUDED.ai_summary,
         ai_key_moments = EXCLUDED.ai_key_moments
@@ -246,7 +264,7 @@ export async function saveMatchAnalysis(matchData: {
   try {
     await getPool().query(query, [
       matchData.matchId,
-      matchData.userId || null,
+      userId || null,
       matchData.accountId || null,
       matchData.heroName,
       matchData.heroId,
