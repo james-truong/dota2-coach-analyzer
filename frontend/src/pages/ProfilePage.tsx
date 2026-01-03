@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+
 interface PlayerProfile {
   user: {
     id: string
@@ -84,7 +86,7 @@ function ProfilePage({ user }: ProfilePageProps) {
 
     try {
       const token = localStorage.getItem('auth_token')
-      const response = await axios.get('/api/profile/me', {
+      const response = await axios.get(`${API_BASE}/api/profile/me`, {
         withCredentials: true,
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -111,7 +113,7 @@ function ProfilePage({ user }: ProfilePageProps) {
 
     try {
       const token = localStorage.getItem('auth_token')
-      const response = await axios.post('/api/profile/me/refresh', {}, {
+      const response = await axios.post(`${API_BASE}/api/profile/me/refresh`, {}, {
         withCredentials: true,
         headers: {
           'Authorization': `Bearer ${token}`,
