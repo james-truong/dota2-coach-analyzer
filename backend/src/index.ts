@@ -10,7 +10,7 @@ import profileRoutes from './routes/profile.js'
 import improvementRoutes from './routes/improvement.js'
 import heroCoachingRoutes from './routes/heroCoaching.js'
 import sessionAnalysisRoutes from './routes/sessionAnalysis.js'
-import { initializeDatabase } from './services/databaseService.js'
+import { initializeDatabase, clearAnalysisData } from './services/databaseService.js'
 import { initializeHeroData } from './services/heroDataService.js'
 import { configureSteamAuth } from './services/steamAuthService.js'
 import { validateEnvironment } from './config/validateEnv.js'
@@ -85,6 +85,20 @@ app.use('/api/sessions', sessionAnalysisRoutes)
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+// Admin endpoint to clear analysis data
+// Usage: POST /api/admin/clear-analysis with header X-Admin-Key
+app.post('/api/admin/clear-analysis', async (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  const expectedKey = process.env.ADMIN_KEY || 'dota2coach-admin-reset-2024'
+
+  if (adminKey !== expectedKey) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const result = await clearAnalysisData()
+  res.json(result)
 })
 
 // Error handling middleware

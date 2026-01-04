@@ -321,6 +321,21 @@ export async function getRecentMatches(limit: number = 10): Promise<SavedMatch[]
   }
 }
 
+/**
+ * Clear all analysis data (matches, hero stats, player stats, habits)
+ * Used for admin reset when role detection logic changes
+ */
+export async function clearAnalysisData(): Promise<{ success: boolean; message: string }> {
+  try {
+    await getPool().query('TRUNCATE analyzed_matches, hero_statistics, player_statistics, player_habits CASCADE')
+    console.log('✓ Analysis data cleared')
+    return { success: true, message: 'Analysis data cleared successfully' }
+  } catch (error: any) {
+    console.error('Error clearing analysis data:', error)
+    return { success: false, message: error.message }
+  }
+}
+
 export async function initializeDatabase(): Promise<void> {
   const createUsersTableQuery = `
     CREATE TABLE IF NOT EXISTS users (
