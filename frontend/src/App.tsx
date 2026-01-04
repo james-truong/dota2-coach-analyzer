@@ -5,6 +5,8 @@ import AnalysisPage from './pages/AnalysisPage'
 import MatchHistory from './pages/MatchHistory'
 import ProfilePage from './pages/ProfilePage'
 import ImprovementPage from './pages/ImprovementPage'
+import HeroCoachingPage from './pages/HeroCoachingPage'
+import SessionAnalysisPage from './pages/SessionAnalysisPage'
 import SteamLoginButton from './components/SteamLoginButton'
 
 interface SteamUser {
@@ -17,7 +19,7 @@ interface SteamUser {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<'input' | 'playerSelection' | 'analysis' | 'history' | 'profile' | 'improvement'>('improvement')
+  const [currentView, setCurrentView] = useState<'input' | 'playerSelection' | 'analysis' | 'history' | 'profile' | 'improvement' | 'heroes' | 'sessions'>('improvement')
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
   const [selectedPlayerSlot, setSelectedPlayerSlot] = useState<number | null>(null)
   const [user, setUser] = useState<SteamUser | null>(null)
@@ -91,6 +93,26 @@ function App() {
                     My Matches
                   </button>
                   <button
+                    onClick={() => setCurrentView('heroes')}
+                    className={`px-4 py-2 rounded-md ${
+                      currentView === 'heroes'
+                        ? 'bg-dota-blue text-white'
+                        : 'text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    Heroes
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('sessions')}
+                    className={`px-4 py-2 rounded-md ${
+                      currentView === 'sessions'
+                        ? 'bg-dota-blue text-white'
+                        : 'text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    Sessions
+                  </button>
+                  <button
                     onClick={() => setCurrentView('profile')}
                     className={`px-4 py-2 rounded-md ${
                       currentView === 'profile'
@@ -131,6 +153,12 @@ function App() {
         )}
         {currentView === 'profile' && (
           <ProfilePage user={user} />
+        )}
+        {currentView === 'heroes' && (
+          <HeroCoachingPage user={user} />
+        )}
+        {currentView === 'sessions' && (
+          <SessionAnalysisPage user={user} />
         )}
         {currentView === 'playerSelection' && selectedMatchId && (
           <PlayerSelection

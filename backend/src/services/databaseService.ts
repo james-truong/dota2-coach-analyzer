@@ -228,6 +228,7 @@ export async function saveMatchAnalysis(matchData: {
   aiInsights?: any[]
   aiSummary?: any
   aiKeyMoments?: any
+  startTime?: number // Unix timestamp from OpenDota
 }): Promise<void> {
   // If userId is not provided but accountId is, try to look up the user
   let userId = matchData.userId
@@ -251,14 +252,15 @@ export async function saveMatchAnalysis(matchData: {
     (match_id, user_id, account_id, hero_name, hero_id, hero_image, player_slot, team, detected_role,
      kills, deaths, assists, last_hits, denies, gold_per_min, xp_per_min, hero_damage, tower_damage,
      hero_healing, net_worth, level, obs_placed, sen_placed, camps_stacked,
-     game_mode, duration, radiant_win, won, ai_insights, ai_summary, ai_key_moments, analyzed_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, NOW())
+     game_mode, duration, radiant_win, won, ai_insights, ai_summary, ai_key_moments, start_time, analyzed_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, NOW())
     ON CONFLICT (match_id, player_slot) DO UPDATE
     SET analyzed_at = NOW(),
         user_id = EXCLUDED.user_id,
         ai_insights = EXCLUDED.ai_insights,
         ai_summary = EXCLUDED.ai_summary,
-        ai_key_moments = EXCLUDED.ai_key_moments
+        ai_key_moments = EXCLUDED.ai_key_moments,
+        start_time = COALESCE(EXCLUDED.start_time, analyzed_matches.start_time)
   `
 
   try {
@@ -294,6 +296,7 @@ export async function saveMatchAnalysis(matchData: {
       matchData.aiInsights ? JSON.stringify(matchData.aiInsights) : null,
       matchData.aiSummary ? JSON.stringify(matchData.aiSummary) : null,
       matchData.aiKeyMoments ? JSON.stringify(matchData.aiKeyMoments) : null,
+      matchData.startTime || null,
     ])
     console.log(`Saved match ${matchData.matchId} to database with AI insights`)
   } catch (error) {

@@ -167,6 +167,7 @@ export async function backfillUserMatches(
         duration: matchDetails.duration,
         radiantWin: matchDetails.radiant_win,
         won: playerWon,
+        startTime: matchDetails.start_time, // Unix timestamp for session analysis
       })
 
       // Update hero statistics

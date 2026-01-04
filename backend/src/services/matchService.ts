@@ -367,6 +367,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       deepLink: generateReplayDeepLink(matchId),
       openDotaLink: generateOpenDotaLink(matchId),
     },
+    startTime: matchData.start_time, // Unix timestamp for session analysis
   }).catch(err => console.error('Failed to save match to database:', err))
 
   // Update hero statistics (fire and forget - don't block response)

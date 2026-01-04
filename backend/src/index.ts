@@ -8,6 +8,8 @@ import authRoutes from './routes/auth.js'
 import playerRoutes from './routes/player.js'
 import profileRoutes from './routes/profile.js'
 import improvementRoutes from './routes/improvement.js'
+import heroCoachingRoutes from './routes/heroCoaching.js'
+import sessionAnalysisRoutes from './routes/sessionAnalysis.js'
 import { initializeDatabase } from './services/databaseService.js'
 import { initializeHeroData } from './services/heroDataService.js'
 import { configureSteamAuth } from './services/steamAuthService.js'
@@ -77,6 +79,8 @@ app.use('/api/players', playerRoutes)
 app.use('/api/matches', matchRoutes)
 app.use('/api/profile', profileRoutes)
 app.use('/api/improvement', improvementRoutes)
+app.use('/api/hero-coaching', heroCoachingRoutes)
+app.use('/api/sessions', sessionAnalysisRoutes)
 
 // Health check
 app.get('/health', (req, res) => {
