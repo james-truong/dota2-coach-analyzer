@@ -2,6 +2,7 @@
 // This will evolve into more sophisticated analysis over time
 
 import { getHeroStatistics, type HeroStats } from './heroStatisticsService.js'
+import { detectPlayerRole } from './heroDataService.js'
 
 interface PlayerStats {
   heroId: number
@@ -76,15 +77,19 @@ export async function analyzePlayerPerformance(
   // Try to get hero-specific benchmarks
   const heroStats = await getHeroStatistics(heroName)
 
-  // Smart role detection based on actual gameplay stats
-  // This is much more accurate than slot-based detection
-  // A player is considered a core if they:
-  // - Have high GPM (> 350), OR
-  // - Have decent farm (> 3 CS/min)
+  // Smart role detection combining hero type with gameplay stats
+  // Uses OpenDota hero role data (Support/Carry tags) as primary signal
+  // Falls back to stats for flexible heroes
+  const detectedRole = detectPlayerRole(stats.heroId, {
+    goldPerMin: stats.goldPerMin,
+    lastHits: stats.lastHits,
+    duration,
+    obsPlaced: stats.obsPlaced,
+    senPlaced: stats.senPlaced,
+  })
   const csPerMin = stats.lastHits / durationMinutes
-  const isCore = stats.goldPerMin > 350 || csPerMin > 3
-  const isSupport = !isCore
-  const detectedRole: 'Core' | 'Support' = isCore ? 'Core' : 'Support'
+  const isCore = detectedRole === 'Core'
+  const isSupport = detectedRole === 'Support'
 
   // 1. Farm Efficiency Check (for cores)
   if (isCore) {

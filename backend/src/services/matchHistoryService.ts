@@ -2,7 +2,7 @@
 import axios from 'axios'
 import { saveMatchAnalysis } from './databaseService.js'
 import { getPlayerHeroName, getGameModeName, isRadiantPlayer } from './openDotaService.js'
-import { getHeroImageUrl } from './heroDataService.js'
+import { getHeroImageUrl, detectPlayerRole } from './heroDataService.js'
 import { updateHeroStatistics } from './heroStatisticsService.js'
 
 const OPENDOTA_API_BASE = 'https://api.opendota.com/api'
@@ -134,8 +134,14 @@ export async function backfillUserMatches(
       const heroName = await getPlayerHeroName(playerData.hero_id)
       const playerWon = (isRadiant && matchDetails.radiant_win) || (!isRadiant && !matchDetails.radiant_win)
 
-      // Detect role based on stats
-      const detectedRole = detectRole(playerData)
+      // Detect role using hero type + stats
+      const detectedRole = detectPlayerRole(playerData.hero_id, {
+        goldPerMin: playerData.gold_per_min || 0,
+        lastHits: playerData.last_hits || 0,
+        duration: matchDetails.duration,
+        obsPlaced: playerData.obs_placed,
+        senPlaced: playerData.sen_placed,
+      })
 
       // Save to database
       await saveMatchAnalysis({
@@ -206,24 +212,3 @@ export async function backfillUserMatches(
   return { success: true, matchesBackfilled: successCount, errors: errorCount }
 }
 
-/**
- * Simple role detection based on stats
- */
-function detectRole(playerData: any): string {
-  const gpm = playerData.gold_per_min || 0
-  const obsPlaced = playerData.obs_placed || 0
-  const senPlaced = playerData.sen_placed || 0
-
-  // Support indicators: low GPM and ward placement
-  if ((obsPlaced > 0 || senPlaced > 0) && gpm < 400) {
-    return 'Support'
-  }
-
-  // Core: high GPM
-  if (gpm >= 400) {
-    return 'Core'
-  }
-
-  // Default to Core for ambiguous cases
-  return 'Core'
-}
