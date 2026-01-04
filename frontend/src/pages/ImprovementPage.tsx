@@ -47,6 +47,15 @@ interface PlayerHabit {
   description: string
 }
 
+interface RoleStats {
+  role: 'core' | 'support'
+  totalMatches: number
+  wins: number
+  winRate: number
+  avgKDA: number
+  avgGPM: number
+}
+
 interface ImprovementMetrics {
   currentPeriod: PeriodStats
   previousPeriod: PeriodStats | null
@@ -58,6 +67,8 @@ interface ImprovementMetrics {
   }
   habits: PlayerHabit[]
   recentTrend: 'improving' | 'declining' | 'stable'
+  roleStats: RoleStats[]
+  aiCoachingSummary?: string
 }
 
 interface WeeklyFocus {
@@ -226,6 +237,58 @@ function ImprovementPage({ user }: ImprovementPageProps) {
             </div>
           </div>
         </div>
+
+        {/* AI Coaching Summary */}
+        {metrics.aiCoachingSummary && (
+          <div className="mb-6 bg-gradient-to-r from-blue-900/40 to-cyan-900/40 rounded-lg p-6 border border-blue-500/50">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl">🤖</span>
+              <div>
+                <h3 className="text-lg font-bold text-white mb-2">AI Coach Says</h3>
+                <p className="text-gray-200 leading-relaxed">{metrics.aiCoachingSummary}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Role-Specific Performance */}
+        {metrics.roleStats && metrics.roleStats.length > 0 && (
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {metrics.roleStats.map((roleStat) => (
+              <div
+                key={roleStat.role}
+                className={`rounded-lg p-5 border ${
+                  roleStat.role === 'core'
+                    ? 'bg-red-900/20 border-red-500/50'
+                    : 'bg-blue-900/20 border-blue-500/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-lg font-bold text-white capitalize flex items-center gap-2">
+                    {roleStat.role === 'core' ? '⚔️' : '🛡️'} {roleStat.role} Games
+                  </h4>
+                  <span className="text-sm text-gray-400">{roleStat.totalMatches} matches</span>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Win Rate</p>
+                    <p className={`text-xl font-bold ${roleStat.winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                      {roleStat.winRate.toFixed(0)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">KDA</p>
+                    <p className="text-xl font-bold text-white">{roleStat.avgKDA.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">GPM</p>
+                    <p className="text-xl font-bold text-white">{Math.round(roleStat.avgGPM)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Weekly Focus Area */}
         {weeklyFocus && (
