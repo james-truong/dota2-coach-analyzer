@@ -89,6 +89,10 @@ export function getAllHeroes(): { id: number; name: string; image: string }[] {
 /**
  * Determines if a hero is primarily a Support or Core based on OpenDota role data.
  * Returns 'Support', 'Core', or 'Flexible' for heroes that can play both.
+ *
+ * Key insight: The "Carry" tag means the hero is designed to farm and scale.
+ * Heroes with Carry tag should be treated as Core even if they also have Support tag
+ * (e.g., Wraith King has Support tag for his aura/stun, but is played as pos 1/3).
  */
 export function getHeroPrimaryRole(heroId: number): 'Support' | 'Core' | 'Flexible' {
   const roles = getHeroRoles(heroId)
@@ -100,33 +104,21 @@ export function getHeroPrimaryRole(heroId: number): 'Support' | 'Core' | 'Flexib
   const hasSupport = roles.includes('Support')
   const hasCarry = roles.includes('Carry')
 
-  // Clear support heroes (Support tag, no Carry tag)
-  // e.g., Crystal Maiden, Witch Doctor, Lion, Shadow Shaman
-  if (hasSupport && !hasCarry) {
-    return 'Support'
-  }
-
-  // Clear carry/core heroes (Carry tag, no Support tag)
-  // e.g., Anti-Mage, Phantom Assassin, Juggernaut
-  if (hasCarry && !hasSupport) {
+  // Any hero with Carry tag is a core hero - they're designed to farm and scale
+  // e.g., Anti-Mage, Phantom Assassin, Juggernaut, Wraith King
+  // Even if they have Support tag (like WK), they're played as cores
+  if (hasCarry) {
     return 'Core'
   }
 
-  // Heroes with both tags are flexible (rare)
-  if (hasCarry && hasSupport) {
-    return 'Flexible'
+  // Pure support heroes (Support tag, no Carry tag)
+  // e.g., Crystal Maiden, Witch Doctor, Lion, Shadow Shaman
+  if (hasSupport) {
+    return 'Support'
   }
 
-  // Heroes without Carry or Support tags - check other indicators
-  // Nuker/Disabler/Initiator without Support = likely mid/offlane core
-  // e.g., Puck, Magnus, Tidehunter
-  const coreIndicators = ['Nuker', 'Initiator', 'Durable', 'Pusher', 'Escape']
-  const hasCoreIndicator = coreIndicators.some(role => roles.includes(role))
-
-  if (hasCoreIndicator) {
-    return 'Flexible' // Could be core or support depending on how played
-  }
-
+  // Heroes without Carry or Support tags - these are flexible
+  // e.g., Puck, Magnus, Tidehunter, Mars - can be played as core or support
   return 'Flexible'
 }
 
