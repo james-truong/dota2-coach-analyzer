@@ -1,7 +1,7 @@
 import passport from 'passport'
 import { Strategy as SteamStrategy } from 'passport-steam'
 import { upsertUser } from './databaseService.js'
-import { triggerAutoImportBackground } from './autoImportService.js'
+import { triggerAutoImportBackground, shouldAutoImport } from './autoImportService.js'
 
 // Convert Steam ID64 to account ID (32-bit)
 // Steam ID64 format: 76561197960265728 + account_id
@@ -78,12 +78,14 @@ export function configureSteamAuth(realm: string, returnURL: string) {
 
           console.log(`✓ Steam login: ${user.displayName} (Account ID: ${accountId}, User ID: ${user.id}, First login: ${dbUser.isFirstLogin})`)
 
-          // Trigger auto-import ONLY for first-time users to avoid unnecessary API calls
-          if (dbUser.isFirstLogin) {
-            console.log(`🆕 First-time user detected - triggering auto-import of 5 matches`)
+          // Trigger auto-import if user has no analyzed matches
+          // This handles both first-time users AND returning users whose data was cleared
+          const needsImport = await shouldAutoImport(user.id!)
+          if (needsImport) {
+            console.log(`🆕 User has no analyzed matches - triggering auto-import of 5 matches`)
             triggerAutoImportBackground(user.id!, accountId, 5)
           } else {
-            console.log(`♻️  Returning user - skipping auto-import`)
+            console.log(`♻️  User already has analyzed matches - skipping auto-import`)
           }
 
           return done(null, user)
