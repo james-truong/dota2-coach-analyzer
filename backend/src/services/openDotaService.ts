@@ -283,12 +283,15 @@ export async function fetchPlayerMatches(accountId: number, limit: number = 20):
   try {
     console.log(`🔍 fetchPlayerMatches called with accountId=${accountId}, limit=${limit}`)
 
+    const url = `${OPENDOTA_API_BASE}/players/${accountId}/matches`
+    console.log(`🌐 Fetching from URL: ${url}`)
+
     const config: any = {
       headers: {
         'User-Agent': 'Dota2CoachAnalyzer/1.0',
         'Accept': 'application/json',
       },
-      timeout: 10000,
+      timeout: 15000, // Increased timeout
       params: {
         limit,
       },
@@ -298,29 +301,49 @@ export async function fetchPlayerMatches(accountId: number, limit: number = 20):
     const apiKey = process.env.OPENDOTA_API_KEY
     if (apiKey && apiKey.trim()) {
       config.params.api_key = apiKey
+      console.log(`🔑 Using OpenDota API key`)
+    } else {
+      console.log(`⚠️ No OpenDota API key configured`)
     }
 
-    const response = await axios.get(
-      `${OPENDOTA_API_BASE}/players/${accountId}/matches`,
-      config
-    )
+    const response = await axios.get(url, config)
+
+    console.log(`📥 Response status: ${response.status}`)
+    console.log(`📥 Response data type: ${typeof response.data}`)
+    console.log(`📥 Response data is array: ${Array.isArray(response.data)}`)
+    console.log(`📥 Response data length: ${response.data?.length}`)
 
     if (response.status === 200 && response.data) {
-      console.log(`Successfully fetched ${response.data.length} matches for account ${accountId}`)
-      return response.data
+      if (Array.isArray(response.data)) {
+        console.log(`✅ Successfully fetched ${response.data.length} matches for account ${accountId}`)
+        if (response.data.length > 0) {
+          console.log(`📋 First match ID: ${response.data[0]?.match_id}`)
+        }
+        return response.data
+      } else {
+        console.error(`❌ Response data is not an array:`, JSON.stringify(response.data).slice(0, 200))
+        return []
+      }
     }
 
+    console.error(`❌ Unexpected response - status: ${response.status}, data: ${JSON.stringify(response.data).slice(0, 200)}`)
     return []
   } catch (error: any) {
+    console.error(`❌ fetchPlayerMatches error for account ${accountId}:`)
+    console.error(`   Error message: ${error.message}`)
+    console.error(`   Error code: ${error.code}`)
+    if (error.response) {
+      console.error(`   Response status: ${error.response.status}`)
+      console.error(`   Response data: ${JSON.stringify(error.response.data).slice(0, 200)}`)
+    }
     if (error.response?.status === 404) {
-      console.error(`Player ${accountId} not found on OpenDota`)
+      console.error(`   Player ${accountId} not found on OpenDota`)
       return []
     }
     if (error.response?.status === 429) {
-      console.error('Rate limited when fetching player matches')
+      console.error(`   Rate limited when fetching player matches`)
       return []
     }
-    console.error('Error fetching player matches:', error.message)
     return []
   }
 }
