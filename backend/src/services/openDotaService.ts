@@ -69,7 +69,7 @@ export async function fetchMatchFromOpenDota(matchId: string, retryCount: number
         'User-Agent': 'Dota2CoachAnalyzer/1.0',
         'Accept': 'application/json',
       },
-      timeout: 10000, // 10 second timeout
+      timeout: 30000, // 30 second timeout for slow API responses
     }
 
     // Add API key if available (higher rate limits)
@@ -220,7 +220,7 @@ export async function requestMatchParsing(matchId: string): Promise<{ success: b
         'User-Agent': 'Dota2CoachAnalyzer/1.0',
         'Accept': 'application/json',
       },
-      timeout: 10000,
+      timeout: 30000, // 30 second timeout for slow API responses
     }
 
     // Add API key if available
@@ -291,7 +291,7 @@ export async function fetchPlayerMatches(accountId: number, limit: number = 20):
         'User-Agent': 'Dota2CoachAnalyzer/1.0',
         'Accept': 'application/json',
       },
-      timeout: 15000, // Increased timeout
+      timeout: 30000, // 30 second timeout for slow API responses
       params: {
         limit,
       },
