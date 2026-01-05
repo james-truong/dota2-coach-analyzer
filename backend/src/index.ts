@@ -10,7 +10,8 @@ import profileRoutes from './routes/profile.js'
 import improvementRoutes from './routes/improvement.js'
 import heroCoachingRoutes from './routes/heroCoaching.js'
 import sessionAnalysisRoutes from './routes/sessionAnalysis.js'
-import { initializeDatabase, clearAnalysisData } from './services/databaseService.js'
+import { initializeDatabase, clearAnalysisData, getUserByAccountId } from './services/databaseService.js'
+import { autoImportMatches } from './services/autoImportService.js'
 import { initializeHeroData } from './services/heroDataService.js'
 import { configureSteamAuth } from './services/steamAuthService.js'
 import { validateEnvironment } from './config/validateEnv.js'
@@ -98,6 +99,34 @@ app.post('/api/admin/clear-analysis', async (req, res) => {
   }
 
   const result = await clearAnalysisData()
+  res.json(result)
+})
+
+// Admin endpoint to trigger auto-import for a user
+// Usage: POST /api/admin/trigger-import with header X-Admin-Key and body { accountId: number }
+app.post('/api/admin/trigger-import', async (req, res) => {
+  const adminKey = req.headers['x-admin-key']
+  const expectedKey = process.env.ADMIN_KEY || 'dota2coach-admin-reset-2024'
+
+  if (adminKey !== expectedKey) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const { accountId } = req.body
+  if (!accountId) {
+    return res.status(400).json({ error: 'accountId is required' })
+  }
+
+  // Get user from database
+  const user = await getUserByAccountId(accountId)
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' })
+  }
+
+  console.log(`🔧 Admin triggered import for user ${user.id} (account ${accountId})`)
+
+  // Run import synchronously so we can return the result
+  const result = await autoImportMatches(user.id, accountId, 5)
   res.json(result)
 })
 
