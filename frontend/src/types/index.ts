@@ -144,6 +144,11 @@ export interface AnalysisResult {
     score: number;
     keyIssues: string[];
     positives: string[];
+    purchaseHistory?: Array<{
+      time: number;
+      name: string;
+      key: string;
+    }>;
   };
   keyMoments?: {
     moments: KeyMoment[];

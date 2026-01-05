@@ -3,7 +3,61 @@ import axios from 'axios'
 
 const OPENDOTA_API_BASE = 'https://api.opendota.com/api'
 
-// Item ID to name mapping (common items)
+// Cache for item data from OpenDota API
+let itemDataCache: Record<string, { id: number; dname: string; img: string }> | null = null
+
+/**
+ * Fetch item constants from OpenDota and cache them
+ */
+async function fetchItemConstants(): Promise<Record<string, { id: number; dname: string; img: string }>> {
+  if (itemDataCache) {
+    return itemDataCache
+  }
+
+  try {
+    const response = await axios.get(`${OPENDOTA_API_BASE}/constants/items`)
+    itemDataCache = response.data
+    console.log(`✓ Loaded ${Object.keys(itemDataCache!).length} items from OpenDota`)
+    return itemDataCache!
+  } catch (error) {
+    console.error('Error fetching item constants:', error)
+    return {}
+  }
+}
+
+/**
+ * Get item display name from item key (e.g., "bfury" -> "Battle Fury")
+ */
+export async function getItemDisplayName(itemKey: string): Promise<string> {
+  const items = await fetchItemConstants()
+  const item = items[itemKey]
+  if (item) {
+    return item.dname
+  }
+  // Fallback: convert key to readable name
+  return itemKey.split('_').map(word =>
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ')
+}
+
+/**
+ * Get item display names from purchase log
+ */
+export async function getItemNamesFromPurchaseLog(
+  purchaseLog: Array<{ time: number; key: string }>
+): Promise<Array<{ time: number; name: string; key: string }>> {
+  const items = await fetchItemConstants()
+
+  return purchaseLog.map(entry => ({
+    time: entry.time,
+    key: entry.key,
+    name: items[entry.key]?.dname || entry.key.split('_').map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ')
+  }))
+}
+
+// Item ID to name mapping (common items) - fallback for when API is unavailable
 const ITEM_NAMES: Record<number, string> = {
   1: 'Blink Dagger',
   2: 'Blades of Attack',

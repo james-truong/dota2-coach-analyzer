@@ -5,7 +5,7 @@ import { analyzePlayerPerformance, analyzeTimelineInsights, generateAnalysisSumm
 import { generateAICoachingInsights } from './aiCoachingService.js'
 import { saveMatchAnalysis, getCachedMatchAnalysis } from './databaseService.js'
 import { updateHeroStatistics } from './heroStatisticsService.js'
-import { analyzeItemBuild } from './itemBuildService.js'
+import { analyzeItemBuild, getItemNamesFromPurchaseLog } from './itemBuildService.js'
 import { extractKeyMoments, generateReplayDeepLink, generateOpenDotaLink } from './keyMomentsService.js'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -211,17 +211,25 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
 
   // Analyze item build
   const playerWon = (isRadiant && matchData.radiant_win) || (!isRadiant && !matchData.radiant_win)
+
+  // Collect all final items (inventory + backpack + neutral)
+  const allFinalItems = [
+    targetPlayer.item_0,
+    targetPlayer.item_1,
+    targetPlayer.item_2,
+    targetPlayer.item_3,
+    targetPlayer.item_4,
+    targetPlayer.item_5,
+    targetPlayer.backpack_0,
+    targetPlayer.backpack_1,
+    targetPlayer.backpack_2,
+    targetPlayer.item_neutral,
+  ].filter((item): item is number => item !== undefined && item !== 0)
+
   const itemBuildAnalysis = analyzeItemBuild(
     heroName,
     detectedRole,
-    [
-      targetPlayer.item_0,
-      targetPlayer.item_1,
-      targetPlayer.item_2,
-      targetPlayer.item_3,
-      targetPlayer.item_4,
-      targetPlayer.item_5,
-    ].filter((item): item is number => item !== undefined && item !== 0),
+    allFinalItems,
     getGameModeName(matchData.game_mode),
     matchData.duration,
     playerWon,
@@ -232,6 +240,10 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       netWorth: targetPlayer.net_worth,
     }
   )
+
+  // Get full purchase history with display names
+  const purchaseLog = targetPlayer.purchase_log || []
+  const purchaseHistory = await getItemNamesFromPurchaseLog(purchaseLog)
 
   // Extract key moments for replay highlights
   const keyMomentsAnalysis = await extractKeyMoments(matchData, targetPlayer.account_id)
@@ -320,6 +332,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       score: itemBuildAnalysis.itemScore,
       keyIssues: itemBuildAnalysis.keyIssues,
       positives: itemBuildAnalysis.positives,
+      purchaseHistory: purchaseHistory, // Full list of items purchased during the match
     },
     keyMoments: {
       moments: keyMomentsAnalysis.moments,

@@ -35,12 +35,21 @@ interface OpenDotaPlayer {
   camps_stacked?: number
   runes_picked_up?: number
   stuns?: number
+  // Final inventory (6 slots)
   item_0?: number
   item_1?: number
   item_2?: number
   item_3?: number
   item_4?: number
   item_5?: number
+  // Backpack (3 slots)
+  backpack_0?: number
+  backpack_1?: number
+  backpack_2?: number
+  // Neutral item slot
+  item_neutral?: number
+  // Full purchase history
+  purchase_log?: Array<{ time: number; key: string }>
   lane_role?: number
 }
 

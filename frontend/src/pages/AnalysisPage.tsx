@@ -205,6 +205,32 @@ function AnalysisPage({ matchId, playerSlot, onBack }: AnalysisPageProps) {
             </div>
           </div>
 
+          {/* Purchase History */}
+          {itemBuild.purchaseHistory && itemBuild.purchaseHistory.length > 0 && (
+            <div className="mb-4">
+              <p className="text-gray-400 text-sm mb-2">Items Purchased ({itemBuild.purchaseHistory.length} items):</p>
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                {itemBuild.purchaseHistory.map((item: { time: number; name: string; key: string }, index: number) => {
+                  const minutes = Math.floor(item.time / 60)
+                  const seconds = Math.abs(item.time % 60)
+                  const timeStr = item.time < 0
+                    ? `-${Math.abs(minutes)}:${seconds.toString().padStart(2, '0')}`
+                    : `${minutes}:${seconds.toString().padStart(2, '0')}`
+                  return (
+                    <span
+                      key={index}
+                      className="px-2 py-1 bg-gray-700/50 rounded text-gray-300 text-xs flex items-center gap-1"
+                      title={`Purchased at ${timeStr}`}
+                    >
+                      <span className="text-gray-500">{timeStr}</span>
+                      {item.name}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Positives */}
           {itemBuild.positives && itemBuild.positives.length > 0 && (
             <div className="mb-4">
