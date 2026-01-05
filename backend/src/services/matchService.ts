@@ -5,7 +5,7 @@ import { analyzePlayerPerformance, analyzeTimelineInsights, generateAnalysisSumm
 import { generateAICoachingInsights } from './aiCoachingService.js'
 import { saveMatchAnalysis, getCachedMatchAnalysis } from './databaseService.js'
 import { updateHeroStatistics } from './heroStatisticsService.js'
-import { analyzeItemBuild, getItemNamesFromPurchaseLog } from './itemBuildService.js'
+import { analyzeItemBuild, getItemNamesFromPurchaseLog, getItemNamesFromIds } from './itemBuildService.js'
 import { extractKeyMoments, generateReplayDeepLink, generateOpenDotaLink } from './keyMomentsService.js'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -245,6 +245,9 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
   const purchaseLog = targetPlayer.purchase_log || []
   const purchaseHistory = await getItemNamesFromPurchaseLog(purchaseLog)
 
+  // Get display names for final items (from API, not static mapping)
+  const finalItemNames = await getItemNamesFromIds(allFinalItems)
+
   // Extract key moments for replay highlights
   const keyMomentsAnalysis = await extractKeyMoments(matchData, targetPlayer.account_id)
 
@@ -328,7 +331,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
     insights: insightsWithIds,
     summary,
     itemBuild: {
-      items: itemBuildAnalysis.finalItems,
+      items: finalItemNames, // Use API-resolved names for final items
       score: itemBuildAnalysis.itemScore,
       keyIssues: itemBuildAnalysis.keyIssues,
       positives: itemBuildAnalysis.positives,

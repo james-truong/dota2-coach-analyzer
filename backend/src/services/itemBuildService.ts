@@ -5,6 +5,7 @@ const OPENDOTA_API_BASE = 'https://api.opendota.com/api'
 
 // Cache for item data from OpenDota API
 let itemDataCache: Record<string, { id: number; dname: string; img: string }> | null = null
+let itemIdToNameCache: Record<number, string> | null = null
 
 /**
  * Fetch item constants from OpenDota and cache them
@@ -17,12 +18,46 @@ async function fetchItemConstants(): Promise<Record<string, { id: number; dname:
   try {
     const response = await axios.get(`${OPENDOTA_API_BASE}/constants/items`)
     itemDataCache = response.data
+
+    // Build ID to name mapping
+    itemIdToNameCache = {}
+    for (const [, item] of Object.entries(itemDataCache!)) {
+      if (item.id && item.dname) {
+        itemIdToNameCache[item.id] = item.dname
+      }
+    }
+
     console.log(`✓ Loaded ${Object.keys(itemDataCache!).length} items from OpenDota`)
     return itemDataCache!
   } catch (error) {
     console.error('Error fetching item constants:', error)
     return {}
   }
+}
+
+/**
+ * Get item display name from item ID
+ */
+export async function getItemNameById(itemId: number): Promise<string> {
+  await fetchItemConstants() // Ensure cache is loaded
+  if (itemIdToNameCache && itemIdToNameCache[itemId]) {
+    return itemIdToNameCache[itemId]
+  }
+  // Fallback to static mapping
+  return ITEM_NAMES[itemId] || `Unknown Item (${itemId})`
+}
+
+/**
+ * Get item display names from item IDs
+ */
+export async function getItemNamesFromIds(itemIds: number[]): Promise<string[]> {
+  await fetchItemConstants() // Ensure cache is loaded
+  return itemIds.map(id => {
+    if (itemIdToNameCache && itemIdToNameCache[id]) {
+      return itemIdToNameCache[id]
+    }
+    return ITEM_NAMES[id] || `Unknown Item (${id})`
+  })
 }
 
 /**
