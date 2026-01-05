@@ -226,7 +226,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
     targetPlayer.item_neutral,
   ].filter((item): item is number => item !== undefined && item !== 0)
 
-  const itemBuildAnalysis = analyzeItemBuild(
+  const itemBuildAnalysis = await analyzeItemBuild(
     heroName,
     detectedRole,
     allFinalItems,

@@ -258,7 +258,7 @@ interface ItemBuildAnalysis {
 /**
  * Analyze player's item build and provide feedback
  */
-export function analyzeItemBuild(
+export async function analyzeItemBuild(
   heroName: string,
   detectedRole: string,
   finalItems: number[],
@@ -271,8 +271,9 @@ export function analyzeItemBuild(
     gpm: number
     netWorth: number
   }
-): ItemBuildAnalysis {
-  const itemNames = finalItems.map(id => ITEM_NAMES[id] || `Item ${id}`).filter(name => !name.includes('Item'))
+): Promise<ItemBuildAnalysis> {
+  // Use API-resolved item names for accurate analysis
+  const itemNames = await getItemNamesFromIds(finalItems)
   const insights: ItemBuildAnalysis['insights'] = []
   const positives: string[] = []
   const keyIssues: string[] = []
