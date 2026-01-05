@@ -281,7 +281,7 @@ export function hasTimelineData(matchData: any): boolean {
 // Fetch player's recent matches from OpenDota
 export async function fetchPlayerMatches(accountId: number, limit: number = 20): Promise<any[]> {
   try {
-    console.log(`Fetching recent matches for account ID ${accountId}...`)
+    console.log(`🔍 fetchPlayerMatches called with accountId=${accountId}, limit=${limit}`)
 
     const config: any = {
       headers: {

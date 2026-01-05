@@ -28,10 +28,12 @@ export async function autoImportMatches(
 
   try {
     // Fetch recent match IDs from OpenDota
+    console.log(`📡 Fetching ${limit} matches for account ${accountId}...`)
     const recentMatches = await fetchPlayerMatches(accountId, limit)
+    console.log(`📡 fetchPlayerMatches returned: ${JSON.stringify(recentMatches?.length)} matches`)
 
     if (!recentMatches || recentMatches.length === 0) {
-      console.log(`No recent matches found for account ${accountId}`)
+      console.log(`❌ No recent matches found for account ${accountId}`)
       return { success: true, imported: 0, errors: 0 }
     }
 
