@@ -193,6 +193,10 @@ export async function getCachedMatchAnalysis(matchId: string, playerSlot: number
     aiInsights: row.ai_insights,
     aiSummary: row.ai_summary,
     aiKeyMoments: row.ai_key_moments,
+    // Include item data if it exists
+    finalItems: row.final_items,
+    purchaseHistory: row.purchase_history,
+    itemBuildAnalysis: row.item_build_analysis,
   }
 }
 
@@ -229,6 +233,10 @@ export async function saveMatchAnalysis(matchData: {
   aiSummary?: any
   aiKeyMoments?: any
   startTime?: number // Unix timestamp from OpenDota
+  // Item build data
+  finalItems?: number[]
+  purchaseHistory?: Array<{ time: number; name: string; key: string }>
+  itemBuildAnalysis?: { items: string[]; score: number; keyIssues: string[]; positives: string[] }
 }): Promise<void> {
   // If userId is not provided but accountId is, try to look up the user
   let userId = matchData.userId
@@ -252,15 +260,19 @@ export async function saveMatchAnalysis(matchData: {
     (match_id, user_id, account_id, hero_name, hero_id, hero_image, player_slot, team, detected_role,
      kills, deaths, assists, last_hits, denies, gold_per_min, xp_per_min, hero_damage, tower_damage,
      hero_healing, net_worth, level, obs_placed, sen_placed, camps_stacked,
-     game_mode, duration, radiant_win, won, ai_insights, ai_summary, ai_key_moments, start_time, analyzed_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, NOW())
+     game_mode, duration, radiant_win, won, ai_insights, ai_summary, ai_key_moments, start_time,
+     final_items, purchase_history, item_build_analysis, analyzed_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, NOW())
     ON CONFLICT (match_id, player_slot) DO UPDATE
     SET analyzed_at = NOW(),
         user_id = EXCLUDED.user_id,
         ai_insights = EXCLUDED.ai_insights,
         ai_summary = EXCLUDED.ai_summary,
         ai_key_moments = EXCLUDED.ai_key_moments,
-        start_time = COALESCE(EXCLUDED.start_time, analyzed_matches.start_time)
+        start_time = COALESCE(EXCLUDED.start_time, analyzed_matches.start_time),
+        final_items = EXCLUDED.final_items,
+        purchase_history = EXCLUDED.purchase_history,
+        item_build_analysis = EXCLUDED.item_build_analysis
   `
 
   try {
@@ -297,8 +309,11 @@ export async function saveMatchAnalysis(matchData: {
       matchData.aiSummary ? JSON.stringify(matchData.aiSummary) : null,
       matchData.aiKeyMoments ? JSON.stringify(matchData.aiKeyMoments) : null,
       matchData.startTime || null,
+      matchData.finalItems ? JSON.stringify(matchData.finalItems) : null,
+      matchData.purchaseHistory ? JSON.stringify(matchData.purchaseHistory) : null,
+      matchData.itemBuildAnalysis ? JSON.stringify(matchData.itemBuildAnalysis) : null,
     ])
-    console.log(`Saved match ${matchData.matchId} to database with AI insights`)
+    console.log(`Saved match ${matchData.matchId} to database with AI insights and item data`)
   } catch (error) {
     console.error('Error saving match to database:', error)
     // Don't throw error - saving to DB is optional
@@ -393,6 +408,11 @@ export async function initializeDatabase(): Promise<void> {
       ai_insights JSONB,
       ai_summary JSONB,
       ai_key_moments JSONB,
+
+      -- Item build data (stored as JSON)
+      final_items JSONB,
+      purchase_history JSONB,
+      item_build_analysis JSONB,
 
       UNIQUE(match_id, player_slot)
     )
@@ -498,6 +518,14 @@ export async function initializeDatabase(): Promise<void> {
     await getPool().query(createPlayerStatsTableQuery)
     await getPool().query(createPlayerHabitsTableQuery)
     console.log('✓ Database tables initialized')
+
+    // Run migrations for new columns (idempotent - safe to run multiple times)
+    await getPool().query(`
+      ALTER TABLE analyzed_matches ADD COLUMN IF NOT EXISTS final_items JSONB;
+      ALTER TABLE analyzed_matches ADD COLUMN IF NOT EXISTS purchase_history JSONB;
+      ALTER TABLE analyzed_matches ADD COLUMN IF NOT EXISTS item_build_analysis JSONB;
+    `)
+    console.log('✓ Database migrations applied')
   } catch (error) {
     console.error('Error initializing database:', error)
   }

@@ -97,7 +97,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
           sentryWardsPlaced: cachedAnalysis.senPlaced || 0,
           wardsDestroyed: 0,
           stunsDuration: 0,
-          finalItems: [],
+          finalItems: cachedAnalysis.finalItems || [],
         },
         insights: cachedAnalysis.aiInsights || [],
         summary: cachedAnalysis.aiSummary || {
@@ -105,11 +105,12 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
           weaknesses: [],
           keyRecommendation: `Match analyzed on ${new Date(cachedAnalysis.analyzedAt).toLocaleDateString()}. View "My Matches" for full history.`,
         },
-        itemBuild: {
+        itemBuild: cachedAnalysis.itemBuildAnalysis || {
           items: [],
           score: 7,
           keyIssues: [],
-          positives: ['Cached analysis - full item analysis not stored'],
+          positives: ['Cached analysis - item data not available'],
+          purchaseHistory: cachedAnalysis.purchaseHistory || [],
         },
         keyMoments: cachedAnalysis.aiKeyMoments || {
           moments: [],
@@ -384,6 +385,16 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       openDotaLink: generateOpenDotaLink(matchId),
     },
     startTime: matchData.start_time, // Unix timestamp for session analysis
+    // Item build data
+    finalItems: allFinalItems,
+    purchaseHistory: purchaseHistory,
+    itemBuildAnalysis: {
+      items: finalItemNames,
+      score: itemBuildAnalysis.itemScore,
+      keyIssues: itemBuildAnalysis.keyIssues,
+      positives: itemBuildAnalysis.positives,
+      purchaseHistory: purchaseHistory,
+    },
   }).catch(err => console.error('Failed to save match to database:', err))
 
   // Update hero statistics (fire and forget - don't block response)
