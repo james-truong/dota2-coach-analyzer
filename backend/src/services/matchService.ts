@@ -51,7 +51,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
     const cachedAnalysis = await getCachedMatchAnalysis(matchId, playerSlot)
 
     if (cachedAnalysis) {
-      console.log(`💾 Cache HIT! Returning cached analysis for match ${matchId} (player slot ${playerSlot})`)
+      console.log(`💾 Cache HIT! Returning cached analysis for match ${matchId} (player slot ${playerSlot}) with item data`)
       console.log(`💰 SAVED ~$0.03 CAD by skipping AI analysis!`)
 
       // Return fully cached data without any AI calls
