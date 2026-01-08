@@ -105,12 +105,15 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
           weaknesses: [],
           keyRecommendation: `Match analyzed on ${new Date(cachedAnalysis.analyzedAt).toLocaleDateString()}. View "My Matches" for full history.`,
         },
-        itemBuild: cachedAnalysis.itemBuildAnalysis || {
+        itemBuild: cachedAnalysis.itemBuildAnalysis ? {
+          ...cachedAnalysis.itemBuildAnalysis,
+          purchaseHistory: cachedAnalysis.purchaseHistory || cachedAnalysis.itemBuildAnalysis.purchaseHistory || [],
+        } : {
           items: [],
-          score: 7,
+          score: 0,
           keyIssues: [],
-          positives: ['Cached analysis - item data not available'],
-          purchaseHistory: cachedAnalysis.purchaseHistory || [],
+          positives: ['v2: Item data not cached - re-analyze for full items'],
+          purchaseHistory: [],
         },
         keyMoments: cachedAnalysis.aiKeyMoments || {
           moments: [],
