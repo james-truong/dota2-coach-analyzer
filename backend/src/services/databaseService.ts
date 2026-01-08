@@ -313,9 +313,13 @@ export async function saveMatchAnalysis(matchData: {
       matchData.purchaseHistory ? JSON.stringify(matchData.purchaseHistory) : null,
       matchData.itemBuildAnalysis ? JSON.stringify(matchData.itemBuildAnalysis) : null,
     ])
-    console.log(`Saved match ${matchData.matchId} to database with AI insights and item data`)
-  } catch (error) {
-    console.error('Error saving match to database:', error)
+    console.log(`✓ Saved match ${matchData.matchId} to database with AI insights and item data`)
+    console.log(`  📦 Items saved: finalItems=${matchData.finalItems?.length || 0}, purchaseHistory=${matchData.purchaseHistory?.length || 0}`)
+  } catch (error: any) {
+    console.error('❌ Error saving match to database:', error.message || error)
+    if (error.message?.includes('column')) {
+      console.error('  ⚠️ Column error - database migration may not have run')
+    }
     // Don't throw error - saving to DB is optional
   }
 }
@@ -518,15 +522,18 @@ export async function initializeDatabase(): Promise<void> {
     await getPool().query(createPlayerStatsTableQuery)
     await getPool().query(createPlayerHabitsTableQuery)
     console.log('✓ Database tables initialized')
-
-    // Run migrations for new columns (idempotent - safe to run multiple times)
-    await getPool().query(`
-      ALTER TABLE analyzed_matches ADD COLUMN IF NOT EXISTS final_items JSONB;
-      ALTER TABLE analyzed_matches ADD COLUMN IF NOT EXISTS purchase_history JSONB;
-      ALTER TABLE analyzed_matches ADD COLUMN IF NOT EXISTS item_build_analysis JSONB;
-    `)
-    console.log('✓ Database migrations applied')
   } catch (error) {
-    console.error('Error initializing database:', error)
+    console.error('Error initializing database tables:', error)
+  }
+
+  // Run migrations for new columns separately (idempotent - safe to run multiple times)
+  try {
+    console.log('🔄 Running database migrations...')
+    await getPool().query(`ALTER TABLE analyzed_matches ADD COLUMN IF NOT EXISTS final_items JSONB`)
+    await getPool().query(`ALTER TABLE analyzed_matches ADD COLUMN IF NOT EXISTS purchase_history JSONB`)
+    await getPool().query(`ALTER TABLE analyzed_matches ADD COLUMN IF NOT EXISTS item_build_analysis JSONB`)
+    console.log('✓ Database migrations applied successfully')
+  } catch (migrationError) {
+    console.error('⚠️ Migration error (may be expected if columns exist):', migrationError)
   }
 }
