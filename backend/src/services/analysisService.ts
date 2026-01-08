@@ -2,7 +2,7 @@
 // This will evolve into more sophisticated analysis over time
 
 import { getHeroStatistics, type HeroStats } from './heroStatisticsService.js'
-import { detectPlayerRole } from './heroDataService.js'
+import { detectDetailedRole, type DetailedRole } from './heroDataService.js'
 
 interface PlayerStats {
   heroId: number
@@ -22,6 +22,7 @@ interface PlayerStats {
   senPlaced?: number
   campsStacked?: number
   laneRole?: number | null  // 1=Safe, 2=Mid, 3=Off, 4=Jungle
+  teamKills?: number  // Total kills by player's team (for kill participation)
 }
 
 interface Insight {
@@ -62,7 +63,7 @@ interface TimelineData {
 
 export interface AnalysisResult {
   insights: Insight[]
-  detectedRole: 'Core' | 'Support'
+  detectedRole: DetailedRole  // 'Carry' | 'Mid' | 'Offlane' | 'Support'
 }
 
 export async function analyzePlayerPerformance(
@@ -77,43 +78,54 @@ export async function analyzePlayerPerformance(
   // Try to get hero-specific benchmarks
   const heroStats = await getHeroStatistics(heroName)
 
-  // Smart role detection combining hero type with gameplay stats
-  // Uses OpenDota hero role data (Support/Carry tags) as primary signal
-  // Falls back to stats for flexible heroes
-  const detectedRole = detectPlayerRole(stats.heroId, {
+  // Smart role detection combining hero type, lane role, and gameplay stats
+  // Uses lane_role from OpenDota as primary signal for core position
+  const detectedRole = detectDetailedRole(stats.heroId, stats.laneRole, {
     goldPerMin: stats.goldPerMin,
     lastHits: stats.lastHits,
     duration,
     obsPlaced: stats.obsPlaced,
     senPlaced: stats.senPlaced,
+    kills: stats.kills,
+    assists: stats.assists,
+    teamKills: stats.teamKills,
   })
   const csPerMin = stats.lastHits / durationMinutes
-  const isCore = detectedRole === 'Core'
+  const isCarry = detectedRole === 'Carry'
+  const isMid = detectedRole === 'Mid'
+  const isOfflane = detectedRole === 'Offlane'
+  const isCore = isCarry || isMid || isOfflane
   const isSupport = detectedRole === 'Support'
 
-  // 1. Farm Efficiency Check (for cores)
-  if (isCore) {
+  // Calculate kill participation for offlane analysis
+  const killParticipation = stats.teamKills && stats.teamKills > 0
+    ? ((stats.kills + stats.assists) / stats.teamKills) * 100
+    : 0
+
+  // 1. Farm Efficiency Check (for Carry and Mid - reduced pressure for Offlane)
+  if (isCarry || isMid) {
     // Use hero-specific benchmarks if available, otherwise fall back to generic thresholds
     const avgCsPerMin = heroStats?.avgCsPerMin || 7
     const avgGpm = heroStats?.avgGpm || 500
     const expectedCsPerMin = avgCsPerMin * 0.85 // 85% of hero average is the minimum acceptable
 
     if (csPerMin < expectedCsPerMin) {
+      const roleText = isCarry ? 'carry' : 'mid'
       const comparisonText = heroStats
         ? `For ${heroName}, the average is ${avgCsPerMin.toFixed(1)} CS/min based on ${heroStats.totalMatches} analyzed matches`
-        : 'For a core player, aim for at least 5-6 CS/min'
+        : `For a ${roleText} player, aim for at least 5-6 CS/min`
 
       insights.push({
         insightType: 'mistake',
         category: 'farm_efficiency',
         severity: 'high',
-        title: 'Low last hit count for a core role',
+        title: `Low last hit count for a ${roleText} role`,
         description: `You only secured ${stats.lastHits} last hits in ${Math.floor(durationMinutes)} minutes (${csPerMin.toFixed(1)} CS/min). ${comparisonText}.`,
         recommendation: 'Focus on last hitting in lane and utilize jungle camps between waves. Practice last hit training in demo mode.',
       })
     }
 
-    // GPM check for cores using hero-specific benchmarks
+    // GPM check for Carry/Mid using hero-specific benchmarks
     const minAcceptableGpm = avgGpm * 0.8 // 80% of hero average
     if (stats.goldPerMin < minAcceptableGpm) {
       const comparisonText = heroStats
@@ -127,6 +139,75 @@ export async function analyzePlayerPerformance(
         title: 'Low gold per minute',
         description: `Your GPM was ${stats.goldPerMin}, which is below average (${comparisonText}).`,
         recommendation: 'Minimize downtime between farming waves and camps. Look for opportunities to take towers and participate in kills.',
+      })
+    }
+  }
+
+  // 2. Offlane-Specific Analysis
+  if (isOfflane) {
+    // Kill participation check - offlaners should be active in fights
+    if (killParticipation < 50 && durationMinutes > 20) {
+      insights.push({
+        insightType: 'mistake',
+        category: 'teamfight',
+        severity: 'high',
+        title: 'Low fight participation for offlane',
+        description: `Your kill participation was only ${killParticipation.toFixed(0)}%. As an offlaner, you should be present in most team engagements.`,
+        recommendation: 'Stay with your team more during the mid-game. Your job is to initiate fights and create space, not farm.',
+      })
+    } else if (killParticipation > 70) {
+      insights.push({
+        insightType: 'good_play',
+        category: 'teamfight',
+        severity: 'low',
+        title: 'Excellent fight participation',
+        description: `${killParticipation.toFixed(0)}% kill participation shows great map presence and team coordination.`,
+        recommendation: 'Keep being active on the map. Your presence is enabling your cores to farm safely.',
+      })
+    }
+
+    // Tower damage check - offlaners should pressure objectives
+    if (stats.towerDamage < 1500 && durationMinutes > 25) {
+      insights.push({
+        insightType: 'missed_opportunity',
+        category: 'decision_making',
+        severity: 'medium',
+        title: 'Low objective pressure',
+        description: `Only ${stats.towerDamage} tower damage. Offlaners should push lanes and threaten towers to create space.`,
+        recommendation: 'Look for opportunities to split push and draw enemy attention away from your carry.',
+      })
+    } else if (stats.towerDamage > 4000) {
+      insights.push({
+        insightType: 'good_play',
+        category: 'decision_making',
+        severity: 'low',
+        title: 'Great objective focus',
+        description: `${stats.towerDamage} tower damage shows excellent map pressure and objective focus.`,
+        recommendation: 'Your split pushing and objective pressure is creating space for your team.',
+      })
+    }
+
+    // Deaths analysis for offlane - some deaths are acceptable if creating space
+    if (stats.deaths > 6 && killParticipation < 40) {
+      insights.push({
+        insightType: 'mistake',
+        category: 'positioning',
+        severity: 'high',
+        title: 'Dying without impact',
+        description: `${stats.deaths} deaths with only ${killParticipation.toFixed(0)}% kill participation suggests you're dying without creating value.`,
+        recommendation: 'Make sure your deaths are meaningful - either securing kills or creating space for objectives.',
+      })
+    }
+
+    // Reduced farm pressure for offlane - only flag if extremely low
+    if (csPerMin < 3 && stats.goldPerMin < 350) {
+      insights.push({
+        insightType: 'missed_opportunity',
+        category: 'farm_efficiency',
+        severity: 'low',
+        title: 'Very low farm for offlane',
+        description: `${csPerMin.toFixed(1)} CS/min and ${stats.goldPerMin} GPM is quite low. Even offlaners need farm for key items.`,
+        recommendation: 'Farm the dangerous lane and jungle to maintain item timings. Aura items need gold too.',
       })
     }
   }
@@ -209,9 +290,9 @@ export async function analyzePlayerPerformance(
     })
   }
 
-  // Use hero-specific benchmarks for positive feedback
+  // Use hero-specific benchmarks for positive feedback (Carry/Mid only - offlane has its own above)
   const excellentCsThreshold = heroStats?.avgCsPerMin ? heroStats.avgCsPerMin * 1.2 : 8
-  if (isCore && csPerMin > excellentCsThreshold) {
+  if ((isCarry || isMid) && csPerMin > excellentCsThreshold) {
     const comparisonText = heroStats
       ? `well above the ${heroName} average of ${heroStats.avgCsPerMin.toFixed(1)} CS/min`
       : 'very strong farming'

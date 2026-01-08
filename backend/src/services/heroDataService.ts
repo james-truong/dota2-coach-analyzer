@@ -179,3 +179,135 @@ export function detectPlayerRole(
 
   return supportScore > coreScore ? 'Support' : 'Core'
 }
+
+/**
+ * Detailed role type that distinguishes between core positions
+ */
+export type DetailedRole = 'Carry' | 'Mid' | 'Offlane' | 'Support'
+
+/**
+ * Check if a hero has offlane-style characteristics based on their role tags.
+ * Offlane heroes typically have Initiator, Durable, or Disabler tags.
+ */
+export function isOfflaneStyleHero(heroId: number): boolean {
+  const roles = getHeroRoles(heroId)
+
+  // Heroes with these tags are typically played as offlaners
+  const offlaneIndicators = ['Initiator', 'Durable']
+  const hasOfflaneTag = offlaneIndicators.some(tag => roles.includes(tag))
+
+  // Pure carries are less likely to be offlaners even with Durable tag
+  const hasCarry = roles.includes('Carry')
+  const hasEscape = roles.includes('Escape')
+
+  // Heroes like Tidehunter, Mars, Centaur, Bristleback, Axe have Initiator/Durable
+  // Heroes like AM, PA have Carry + Escape - these are safelane carries
+  if (hasOfflaneTag && !hasEscape) {
+    return true
+  }
+
+  // Some heroes with Carry + Durable are offlaners (like Bristleback, Centaur)
+  // But we'll rely more on lane_role for these edge cases
+  return hasOfflaneTag && !hasCarry
+}
+
+/**
+ * Detailed role detection that distinguishes between Carry, Mid, Offlane, and Support.
+ * Uses lane_role from OpenDota as primary signal, with hero tags and stats as fallback.
+ *
+ * @param heroId - The hero ID
+ * @param laneRole - OpenDota lane_role (1=Safe, 2=Mid, 3=Off, 4=Jungle)
+ * @param stats - Player stats for fallback detection
+ * @returns DetailedRole - 'Carry' | 'Mid' | 'Offlane' | 'Support'
+ */
+export function detectDetailedRole(
+  heroId: number,
+  laneRole: number | null | undefined,
+  stats: {
+    goldPerMin: number
+    lastHits: number
+    duration: number // in seconds
+    obsPlaced?: number
+    senPlaced?: number
+    kills?: number
+    assists?: number
+    teamKills?: number // Total kills by player's team
+  }
+): DetailedRole {
+  // First, determine if they're playing Core or Support using existing logic
+  const baseRole = detectPlayerRole(heroId, stats)
+
+  // If Support, return Support (no further distinction needed for now)
+  if (baseRole === 'Support') {
+    return 'Support'
+  }
+
+  // For Core players, determine specific position
+  // Primary signal: lane_role from OpenDota (most reliable)
+  if (laneRole !== null && laneRole !== undefined) {
+    switch (laneRole) {
+      case 1: // Safe lane
+        return 'Carry'
+      case 2: // Mid lane
+        return 'Mid'
+      case 3: // Off lane
+        return 'Offlane'
+      case 4: // Jungle - treat as offlane/utility core
+        return 'Offlane'
+    }
+  }
+
+  // Fallback: Use hero characteristics and stats
+  const heroPrimaryRole = getHeroPrimaryRole(heroId)
+  const isOfflaneHero = isOfflaneStyleHero(heroId)
+
+  // If hero has strong offlane characteristics, likely offlane
+  if (isOfflaneHero) {
+    return 'Offlane'
+  }
+
+  // Use stats to distinguish Carry vs Mid
+  // Carries typically have higher GPM and CS
+  // Mids have more balanced stats, often higher XPM relative to GPM
+  const csPerMin = stats.lastHits / (stats.duration / 60)
+
+  // High farming stats suggest Carry
+  if (stats.goldPerMin > 550 && csPerMin > 7) {
+    return 'Carry'
+  }
+
+  // Kill participation can indicate Mid (tempo) vs Carry (farming)
+  if (stats.kills !== undefined && stats.assists !== undefined && stats.teamKills !== undefined && stats.teamKills > 0) {
+    const killParticipation = (stats.kills + stats.assists) / stats.teamKills
+    // High kill participation with moderate farm suggests Mid/tempo player
+    if (killParticipation > 0.6 && stats.goldPerMin < 550) {
+      return 'Mid'
+    }
+  }
+
+  // Moderate farm with offlane-style hero → Offlane
+  if (stats.goldPerMin < 500 && csPerMin < 6) {
+    // Check if hero leans toward initiation
+    const roles = getHeroRoles(heroId)
+    if (roles.includes('Initiator') || roles.includes('Durable') || roles.includes('Disabler')) {
+      return 'Offlane'
+    }
+  }
+
+  // Default to Carry for high-farm cores
+  if (stats.goldPerMin > 500 || csPerMin > 6) {
+    return 'Carry'
+  }
+
+  // Default fallback for uncertain cases - use hero type
+  if (heroPrimaryRole === 'Core') {
+    // True carry heroes default to Carry
+    const roles = getHeroRoles(heroId)
+    if (roles.includes('Carry') && roles.includes('Escape')) {
+      return 'Carry'
+    }
+  }
+
+  // Final fallback: Mid (balanced core)
+  return 'Mid'
+}

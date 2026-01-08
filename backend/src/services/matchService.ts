@@ -158,6 +158,10 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
     }
   }
 
+  // Calculate team kills for kill participation
+  const teamPlayers = matchData.players.filter(p => isRadiantPlayer(p.player_slot) === isRadiant)
+  const teamKills = teamPlayers.reduce((sum, p) => sum + p.kills, 0)
+
   // Analyze player performance to get detected role
   const performanceAnalysis = await analyzePlayerPerformance(
     {
@@ -178,6 +182,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       senPlaced: targetPlayer.sen_placed,
       campsStacked: targetPlayer.camps_stacked,
       laneRole: targetPlayer.lane_role,
+      teamKills,  // For kill participation calculation
     },
     matchData.duration,
     isRadiant,
@@ -208,6 +213,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
     duration: matchData.duration,
     gameMode: getGameModeName(matchData.game_mode),
     radiantWin: matchData.radiant_win,
+    teamKills,  // For kill participation in AI prompts
   })
 
   // Fallback to rule-based insights if AI fails

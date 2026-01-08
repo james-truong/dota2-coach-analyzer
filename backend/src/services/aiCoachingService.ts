@@ -1,5 +1,6 @@
 // AI-powered coaching insights using Claude
 import Anthropic from '@anthropic-ai/sdk'
+import { type DetailedRole } from './heroDataService.js'
 
 // Lazy initialize to ensure env vars are loaded
 let anthropic: Anthropic | null = null
@@ -16,7 +17,7 @@ function getAnthropicClient(): Anthropic {
 interface PlayerStats {
   heroName: string
   team: 'radiant' | 'dire'
-  detectedRole: 'Core' | 'Support'
+  detectedRole: DetailedRole  // 'Carry' | 'Mid' | 'Offlane' | 'Support'
 
   // Core stats
   kills: number
@@ -41,6 +42,9 @@ interface PlayerStats {
   duration: number
   gameMode: string
   radiantWin: boolean
+
+  // Team context (for kill participation)
+  teamKills?: number
 }
 
 interface AIInsight {
@@ -114,6 +118,17 @@ function buildCoachingPrompt(
 ): string {
   const { durationMinutes, kdaRatio, csPerMin } = computed
 
+  // Calculate kill participation if team kills available
+  const killParticipation = stats.teamKills && stats.teamKills > 0
+    ? Math.round(((stats.kills + stats.assists) / stats.teamKills) * 100)
+    : null
+
+  // Position-specific coaching guidance
+  const roleGuidance = getRoleGuidance(stats.detectedRole)
+
+  // Position-specific stats to show
+  const positionStats = getPositionSpecificStats(stats, { killParticipation, csPerMin })
+
   return `You are an expert Dota 2 coach analyzing a player's performance. Provide 3-5 concise, actionable coaching insights.
 
 **Match Context:**
@@ -125,13 +140,7 @@ function buildCoachingPrompt(
 
 **Performance Stats:**
 - KDA: ${stats.kills}/${stats.deaths}/${stats.assists} (KDA Ratio: ${kdaRatio.toFixed(2)})
-- Last Hits: ${stats.lastHits} (${csPerMin.toFixed(1)} CS/min)
-- GPM: ${stats.goldPerMin} | XPM: ${stats.xpPerMin}
-- Hero Damage: ${stats.heroDamage.toLocaleString()}
-- Tower Damage: ${stats.towerDamage.toLocaleString()}
-- Net Worth: ${stats.netWorth.toLocaleString()}
-${stats.detectedRole === 'Support' ? `- Observer Wards: ${stats.observerWardsPlaced} | Sentry Wards: ${stats.sentryWardsPlaced}
-- Camps Stacked: ${stats.campsStacked}` : ''}
+${positionStats}
 
 **Your Task:**
 Identify the 3-5 MOST IMPACTFUL insights for improvement. Focus on:
@@ -154,12 +163,72 @@ Identify the 3-5 MOST IMPACTFUL insights for improvement. Focus on:
 **Guidelines:**
 - Be specific with numbers from the stats
 - Prioritize insights by impact (most impactful first)
-- For ${stats.detectedRole} role: ${stats.detectedRole === 'Core' ? 'focus on farming efficiency, itemization, and damage output' : 'focus on vision control, positioning, and enabling cores'}
+- ${roleGuidance}
 - Keep descriptions under 100 characters
 - Keep recommendations under 120 characters
 - Only output valid JSON, nothing else
 
 Generate the insights now:`
+}
+
+/**
+ * Get position-specific coaching guidance for the AI prompt
+ */
+function getRoleGuidance(role: DetailedRole): string {
+  switch (role) {
+    case 'Carry':
+      return 'For Carry role: focus on farming efficiency, item timings, late-game impact, and survival in fights'
+    case 'Mid':
+      return 'For Mid role: focus on lane dominance, tempo control, rotations to side lanes, and power spike timing'
+    case 'Offlane':
+      return 'For Offlane role: focus on fight initiation, creating space for cores, durability, teamfight presence, and objective pressure (NOT farming efficiency)'
+    case 'Support':
+      return 'For Support role: focus on vision control, positioning, enabling cores, and efficient use of limited resources'
+    default:
+      return 'Focus on overall game impact and decision making'
+  }
+}
+
+/**
+ * Get position-specific stats to include in the prompt
+ */
+function getPositionSpecificStats(
+  stats: PlayerStats,
+  computed: { killParticipation: number | null; csPerMin: number }
+): string {
+  const { killParticipation, csPerMin } = computed
+
+  const baseStats = `- GPM: ${stats.goldPerMin} | XPM: ${stats.xpPerMin}
+- Hero Damage: ${stats.heroDamage.toLocaleString()}
+- Tower Damage: ${stats.towerDamage.toLocaleString()}
+- Net Worth: ${stats.netWorth.toLocaleString()}`
+
+  switch (stats.detectedRole) {
+    case 'Carry':
+      return `- Last Hits: ${stats.lastHits} (${csPerMin.toFixed(1)} CS/min) - IMPORTANT for Carry
+${baseStats}`
+
+    case 'Mid':
+      return `- Last Hits: ${stats.lastHits} (${csPerMin.toFixed(1)} CS/min)
+${baseStats}
+${killParticipation !== null ? `- Kill Participation: ${killParticipation}%` : ''}`
+
+    case 'Offlane':
+      return `${baseStats}
+${killParticipation !== null ? `- Kill Participation: ${killParticipation}% - IMPORTANT for Offlane` : ''}
+- Tower Damage: ${stats.towerDamage.toLocaleString()} - Space creation metric
+- Deaths: ${stats.deaths} (acceptable if creating space with high participation)`
+
+    case 'Support':
+      return `${baseStats}
+- Observer Wards: ${stats.observerWardsPlaced} | Sentry Wards: ${stats.sentryWardsPlaced}
+- Camps Stacked: ${stats.campsStacked}
+${killParticipation !== null ? `- Kill Participation: ${killParticipation}%` : ''}`
+
+    default:
+      return `- Last Hits: ${stats.lastHits} (${csPerMin.toFixed(1)} CS/min)
+${baseStats}`
+  }
 }
 
 function parseAIResponse(responseText: string): AIInsight[] {
