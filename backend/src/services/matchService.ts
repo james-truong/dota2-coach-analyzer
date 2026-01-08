@@ -396,7 +396,6 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       score: itemBuildAnalysis.itemScore,
       keyIssues: itemBuildAnalysis.keyIssues,
       positives: itemBuildAnalysis.positives,
-      purchaseHistory: purchaseHistory,
     },
   }).catch(err => console.error('Failed to save match to database:', err))
 

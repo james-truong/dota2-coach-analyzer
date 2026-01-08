@@ -97,7 +97,7 @@ export async function extractKeyMoments(
         moments.push({
           timestamp: objective.time,
           type: 'objective',
-          title: isRoshan ? '🐲 Roshan Slain' : `🏰 ${objective.key || 'Objective'}`,
+          title: isRoshan ? '🐲 Roshan Slain' : `🏰 ${formatObjectiveKey(objective.key)}`,
           description: getObjectiveDescription(objective, playerTeam),
           importance,
         })
@@ -334,6 +334,55 @@ function formatItemName(itemKey: string): string {
 }
 
 /**
+ * Format objective key (internal Dota 2 entity name) to human-readable name
+ */
+function formatObjectiveKey(key: string): string {
+  if (!key) return 'Unknown Objective'
+
+  // Tower patterns: npc_dota_goodguys_tower1_mid -> Radiant Mid Tier 1 Tower
+  const towerMatch = key.match(/npc_dota_(goodguys|badguys)_tower(\d)_(top|mid|bot)/)
+  if (towerMatch) {
+    const team = towerMatch[1] === 'goodguys' ? 'Radiant' : 'Dire'
+    const tier = towerMatch[2]
+    const lane = towerMatch[3].charAt(0).toUpperCase() + towerMatch[3].slice(1)
+    return `${team} ${lane} Tier ${tier} Tower`
+  }
+
+  // Ancient towers: npc_dota_goodguys_tower4 -> Radiant Ancient Tower
+  const ancientTowerMatch = key.match(/npc_dota_(goodguys|badguys)_tower4/)
+  if (ancientTowerMatch) {
+    const team = ancientTowerMatch[1] === 'goodguys' ? 'Radiant' : 'Dire'
+    return `${team} Ancient Tower`
+  }
+
+  // Barracks: npc_dota_goodguys_melee_rax_top -> Radiant Top Melee Barracks
+  const raxMatch = key.match(/npc_dota_(goodguys|badguys)_(melee|range)_rax_(top|mid|bot)/)
+  if (raxMatch) {
+    const team = raxMatch[1] === 'goodguys' ? 'Radiant' : 'Dire'
+    const type = raxMatch[2] === 'melee' ? 'Melee' : 'Ranged'
+    const lane = raxMatch[3].charAt(0).toUpperCase() + raxMatch[3].slice(1)
+    return `${team} ${lane} ${type} Barracks`
+  }
+
+  // Ancient/Fort: npc_dota_goodguys_fort -> Radiant Ancient
+  const fortMatch = key.match(/npc_dota_(goodguys|badguys)_fort/)
+  if (fortMatch) {
+    const team = fortMatch[1] === 'goodguys' ? 'Radiant' : 'Dire'
+    return `${team} Ancient`
+  }
+
+  // Fallback: clean up the key somewhat
+  return key
+    .replace('npc_dota_', '')
+    .replace('goodguys_', 'Radiant ')
+    .replace('badguys_', 'Dire ')
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+/**
  * Get objective description
  */
 function getObjectiveDescription(objective: any, playerTeam: string): string {
@@ -345,7 +394,8 @@ function getObjectiveDescription(objective: any, playerTeam: string): string {
   }
 
   if (objective.key) {
-    return `${teamText} destroyed ${objective.key}`
+    const formattedObjective = formatObjectiveKey(objective.key)
+    return `${teamText} destroyed ${formattedObjective}`
   }
 
   return `${teamText} completed objective`
