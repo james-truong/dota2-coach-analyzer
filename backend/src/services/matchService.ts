@@ -255,12 +255,13 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
 
   // Extract enemy players for item recommendation analysis
   const enemyPlayers = matchData.players
-    .filter(p => isRadiantPlayer(p.player_slot) !== isRadiant)
-    .map(p => ({
+    .filter((p: any) => isRadiantPlayer(p.player_slot) !== isRadiant)
+    .map((p: any) => ({
       hero_id: p.hero_id,
       hero_damage: p.hero_damage,
       kills: p.kills,
     }))
+  console.log(`👥 Extracted ${enemyPlayers.length} enemy players for item recommendations`)
 
   const itemBuildAnalysis = await analyzeItemBuild(
     heroName,

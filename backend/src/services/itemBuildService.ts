@@ -422,9 +422,12 @@ export async function analyzeItemBuild(
 
   // Generate AI-powered recommendations if score is poor (< 60) and enemy data available
   let recommendations: BuildRecommendation | undefined
+  console.log(`📊 Item score: ${itemScore}, Enemy players: ${enemyPlayers?.length || 0}, Threshold check: ${itemScore < 60}`)
   if (itemScore < 60 && enemyPlayers && enemyPlayers.length > 0) {
     try {
+      console.log('🎯 Generating item recommendations (score < 60)...')
       const enemyThreats = await analyzeEnemyThreats(enemyPlayers)
+      console.log('📋 Enemy threats analyzed:', JSON.stringify(enemyThreats))
       const aiRecommendations = await generateItemRecommendations(
         heroName,
         detectedRole,
@@ -436,10 +439,15 @@ export async function analyzeItemBuild(
       )
       if (aiRecommendations) {
         recommendations = aiRecommendations
+        console.log('✅ Item recommendations generated successfully')
+      } else {
+        console.log('⚠️ No recommendations returned from AI')
       }
     } catch (error) {
-      console.error('Error generating item recommendations:', error)
+      console.error('❌ Error generating item recommendations:', error)
     }
+  } else {
+    console.log(`⏭️ Skipping recommendations: score=${itemScore} (need <60), enemies=${enemyPlayers?.length || 0}`)
   }
 
   return {
