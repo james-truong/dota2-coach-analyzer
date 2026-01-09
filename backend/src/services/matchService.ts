@@ -236,6 +236,15 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
     targetPlayer.item_neutral,
   ].filter((item): item is number => item !== undefined && item !== 0)
 
+  // Extract enemy players for item recommendation analysis
+  const enemyPlayers = matchData.players
+    .filter(p => isRadiantPlayer(p.player_slot) !== isRadiant)
+    .map(p => ({
+      hero_id: p.hero_id,
+      hero_damage: p.hero_damage,
+      kills: p.kills,
+    }))
+
   const itemBuildAnalysis = await analyzeItemBuild(
     heroName,
     detectedRole,
@@ -248,7 +257,8 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       deaths: targetPlayer.deaths,
       gpm: targetPlayer.gold_per_min,
       netWorth: targetPlayer.net_worth,
-    }
+    },
+    enemyPlayers  // Pass enemy data for AI recommendations
   )
 
   // Get full purchase history with display names

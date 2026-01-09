@@ -1,7 +1,21 @@
 // Item build analysis and recommendations service
 import axios from 'axios'
+import Anthropic from '@anthropic-ai/sdk'
+import { getHeroName, getHeroRoles } from './heroDataService.js'
 
 const OPENDOTA_API_BASE = 'https://api.opendota.com/api'
+
+// Lazy initialize Anthropic client
+let anthropicClient: Anthropic | null = null
+
+function getAnthropicClient(): Anthropic {
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    })
+  }
+  return anthropicClient
+}
 
 // Cache for item data from OpenDota API
 let itemDataCache: Record<string, { id: number; dname: string; img: string }> | null = null
@@ -253,6 +267,7 @@ interface ItemBuildAnalysis {
   itemScore: number // 0-100
   keyIssues: string[]
   positives: string[]
+  recommendations?: BuildRecommendation  // AI-powered recommendations when score < 60
 }
 
 /**
@@ -270,7 +285,8 @@ export async function analyzeItemBuild(
     deaths: number
     gpm: number
     netWorth: number
-  }
+  },
+  enemyPlayers?: Array<{ hero_id: number; hero_damage?: number; kills?: number }>
 ): Promise<ItemBuildAnalysis> {
   // Use API-resolved item names for accurate analysis
   const itemNames = await getItemNamesFromIds(finalItems)
@@ -402,12 +418,35 @@ export async function analyzeItemBuild(
   // Cap score between 0-100
   itemScore = Math.max(0, Math.min(100, itemScore))
 
+  // Generate AI-powered recommendations if score is poor (< 60) and enemy data available
+  let recommendations: BuildRecommendation | undefined
+  if (itemScore < 60 && enemyPlayers && enemyPlayers.length > 0) {
+    try {
+      const enemyThreats = await analyzeEnemyThreats(enemyPlayers)
+      const aiRecommendations = await generateItemRecommendations(
+        heroName,
+        detectedRole,
+        itemNames,
+        enemyThreats,
+        duration,
+        itemScore,
+        keyIssues
+      )
+      if (aiRecommendations) {
+        recommendations = aiRecommendations
+      }
+    } catch (error) {
+      console.error('Error generating item recommendations:', error)
+    }
+  }
+
   return {
     insights,
     finalItems: itemNames,
     itemScore,
     keyIssues,
     positives,
+    recommendations,
   }
 }
 
@@ -521,4 +560,263 @@ export function getItemNames(itemIds: number[]): string[] {
   return itemIds
     .map(id => ITEM_NAMES[id])
     .filter((name): name is string => name !== undefined)
+}
+
+// ============== ITEM RECOMMENDATION SYSTEM ==============
+
+/**
+ * Enemy team threat analysis
+ */
+export interface EnemyThreats {
+  highPhysical: string[]    // Heroes dealing high physical damage
+  highMagical: string[]     // Heroes dealing high magic damage
+  heavyDisable: string[]    // Heroes with stuns/silences/roots
+  healers: string[]         // Heroes with healing abilities
+  evasion: string[]         // Heroes that build evasion or have innate evasion
+  invisibility: string[]    // Heroes with invisibility
+}
+
+/**
+ * Item recommendation structure
+ */
+export interface ItemRecommendation {
+  itemName: string
+  priority: 'critical' | 'important' | 'situational'
+  reason: string
+  gameTime: string          // e.g., "12:00-15:00"
+  buildOrder: number        // 1 = first core item
+  counters: string[]        // Enemy heroes it counters
+}
+
+/**
+ * Full build recommendation
+ */
+export interface BuildRecommendation {
+  recommendations: ItemRecommendation[]
+  enemyThreats: EnemyThreats
+  buildPath: string         // e.g., "Boots → Blink → BKB → Shiva's"
+}
+
+/**
+ * Enemy player data structure (minimal needed for analysis)
+ */
+interface EnemyPlayer {
+  hero_id: number
+  hero_damage?: number
+  kills?: number
+}
+
+/**
+ * Analyze enemy team composition to identify threats
+ */
+export async function analyzeEnemyThreats(enemyPlayers: EnemyPlayer[]): Promise<EnemyThreats> {
+  const threats: EnemyThreats = {
+    highPhysical: [],
+    highMagical: [],
+    heavyDisable: [],
+    healers: [],
+    evasion: [],
+    invisibility: [],
+  }
+
+  for (const player of enemyPlayers) {
+    const heroName = await getHeroName(player.hero_id)
+    const roles = getHeroRoles(player.hero_id)
+
+    // Physical damage dealers (Carry heroes, typically right-click based)
+    if (roles.includes('Carry') || roles.includes('Pusher')) {
+      threats.highPhysical.push(heroName)
+    }
+
+    // Magical damage dealers (Nuker heroes)
+    if (roles.includes('Nuker')) {
+      threats.highMagical.push(heroName)
+    }
+
+    // Disablers (stuns, silences, roots)
+    if (roles.includes('Disabler')) {
+      threats.heavyDisable.push(heroName)
+    }
+
+    // Healers and sustain
+    const healerHeroes = ['Dazzle', 'Oracle', 'Witch Doctor', 'Omniknight', 'Chen', 'Enchantress', 'Io', 'Warlock', 'Necrophos', 'Abaddon']
+    if (healerHeroes.some(h => heroName.includes(h))) {
+      threats.healers.push(heroName)
+    }
+
+    // Evasion heroes
+    const evasionHeroes = ['Phantom Assassin', 'Windranger', 'Brewmaster', 'Terrorblade']
+    if (evasionHeroes.some(h => heroName.includes(h))) {
+      threats.evasion.push(heroName)
+    }
+
+    // Invisibility heroes
+    const inviHeroes = ['Riki', 'Bounty Hunter', 'Clinkz', 'Nyx Assassin', 'Weaver', 'Invoker', 'Sand King', 'Treant Protector']
+    if (inviHeroes.some(h => heroName.includes(h))) {
+      threats.invisibility.push(heroName)
+    }
+  }
+
+  return threats
+}
+
+/**
+ * Generate AI-powered item recommendations based on enemy team
+ */
+export async function generateItemRecommendations(
+  heroName: string,
+  role: string,
+  currentItems: string[],
+  enemyThreats: EnemyThreats,
+  duration: number,
+  itemScore: number,
+  keyIssues: string[]
+): Promise<BuildRecommendation | null> {
+  // Check if API key is configured
+  if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.trim() === '') {
+    console.warn('⚠️  Anthropic API key not configured. Skipping item recommendations.')
+    return null
+  }
+
+  try {
+    const durationMinutes = Math.floor(duration / 60)
+
+    const prompt = buildItemRecommendationPrompt(
+      heroName,
+      role,
+      currentItems,
+      enemyThreats,
+      durationMinutes,
+      itemScore,
+      keyIssues
+    )
+
+    console.log('🛒 Generating AI item recommendations...')
+    const client = getAnthropicClient()
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1500,
+      messages: [{
+        role: 'user',
+        content: prompt
+      }]
+    })
+
+    const responseText = message.content[0].type === 'text'
+      ? message.content[0].text
+      : ''
+
+    const recommendations = parseItemRecommendationResponse(responseText, enemyThreats)
+    if (recommendations) {
+      console.log(`✓ Generated ${recommendations.recommendations.length} item recommendations`)
+    }
+
+    return recommendations
+  } catch (error: any) {
+    console.error('Error generating item recommendations:', error.message)
+    return null
+  }
+}
+
+/**
+ * Build the prompt for item recommendation AI
+ */
+function buildItemRecommendationPrompt(
+  heroName: string,
+  role: string,
+  currentItems: string[],
+  threats: EnemyThreats,
+  durationMinutes: number,
+  itemScore: number,
+  keyIssues: string[]
+): string {
+  return `You are a Dota 2 itemization coach. A player has poor item choices (score: ${itemScore}/100) and needs recommendations.
+
+**Player Context:**
+- Hero: ${heroName}
+- Role: ${role}
+- Current Items: ${currentItems.length > 0 ? currentItems.join(', ') : 'None recorded'}
+- Game Duration: ${durationMinutes} minutes
+- Item Score: ${itemScore}/100
+- Key Issues: ${keyIssues.length > 0 ? keyIssues.join(', ') : 'General improvement needed'}
+
+**Enemy Team Threats:**
+- Physical Damage Dealers: ${threats.highPhysical.length > 0 ? threats.highPhysical.join(', ') : 'None identified'}
+- Magic Damage Dealers: ${threats.highMagical.length > 0 ? threats.highMagical.join(', ') : 'None identified'}
+- Heavy Disables (stuns/silences): ${threats.heavyDisable.length > 0 ? threats.heavyDisable.join(', ') : 'None identified'}
+- Healers: ${threats.healers.length > 0 ? threats.healers.join(', ') : 'None identified'}
+- Evasion Heroes: ${threats.evasion.length > 0 ? threats.evasion.join(', ') : 'None identified'}
+- Invisibility Heroes: ${threats.invisibility.length > 0 ? threats.invisibility.join(', ') : 'None identified'}
+
+**Generate 3-5 item recommendations in this JSON format:**
+{
+  "recommendations": [
+    {
+      "itemName": "Black King Bar",
+      "priority": "critical",
+      "reason": "Enemy has 3 magic damage heroes with heavy lockdown",
+      "gameTime": "18:00-22:00",
+      "buildOrder": 2,
+      "counters": ["Lion", "Lina", "Shadow Shaman"]
+    }
+  ],
+  "buildPath": "Phase Boots → Blink Dagger → BKB → Shiva's Guard"
+}
+
+**Guidelines:**
+- Priority levels: "critical" (must buy), "important" (highly recommended), "situational" (good option)
+- gameTime should be realistic timing windows like "15:00-18:00" or "20:00-25:00"
+- buildOrder starts at 1 (first core item after boots)
+- counters array should list which enemy heroes the item counters
+- buildPath should show item progression with arrows (→)
+- Focus on items that COUNTER the specific enemy threats identified
+- Consider ${role} role needs (${role === 'Support' ? 'utility/saves' : role === 'Offlane' ? 'initiation/aura items' : 'damage/survivability'})
+- Only output valid JSON, nothing else`
+}
+
+/**
+ * Parse the AI response for item recommendations
+ */
+function parseItemRecommendationResponse(
+  responseText: string,
+  enemyThreats: EnemyThreats
+): BuildRecommendation | null {
+  try {
+    // Extract JSON from response (handle markdown code blocks)
+    let jsonStr = responseText
+    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1].trim()
+    } else {
+      // Try to find raw JSON object
+      const objMatch = responseText.match(/\{[\s\S]*\}/)
+      if (objMatch) {
+        jsonStr = objMatch[0]
+      }
+    }
+
+    const parsed = JSON.parse(jsonStr)
+
+    // Validate structure
+    if (!parsed.recommendations || !Array.isArray(parsed.recommendations)) {
+      console.error('Invalid recommendation structure')
+      return null
+    }
+
+    return {
+      recommendations: parsed.recommendations.slice(0, 5).map((rec: any, idx: number) => ({
+        itemName: rec.itemName || 'Unknown Item',
+        priority: rec.priority || 'situational',
+        reason: rec.reason || 'General recommendation',
+        gameTime: rec.gameTime || 'Mid game',
+        buildOrder: rec.buildOrder || idx + 1,
+        counters: rec.counters || [],
+      })),
+      enemyThreats,
+      buildPath: parsed.buildPath || 'No specific build path recommended',
+    }
+  } catch (error) {
+    console.error('Error parsing item recommendation response:', error)
+    return null
+  }
 }
