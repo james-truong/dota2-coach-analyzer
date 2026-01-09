@@ -45,7 +45,7 @@ router.get('/:matchId/players', async (req, res, next) => {
 router.get('/:matchId/analysis', async (req, res, next) => {
   try {
     const { matchId } = req.params
-    const { playerSlot } = req.query
+    const { playerSlot, accountId } = req.query
 
     // Get current user if authenticated via JWT
     let currentUser: any = null
@@ -55,8 +55,11 @@ router.get('/:matchId/analysis', async (req, res, next) => {
       currentUser = verifyToken(token)
     }
 
+    // Support both playerSlot and accountId parameters
+    // accountId will be resolved to playerSlot in getMatchAnalysis
     const playerSlotNum = playerSlot ? parseInt(playerSlot as string) : undefined
-    const analysis = await getMatchAnalysis(matchId, playerSlotNum, currentUser)
+    const accountIdNum = accountId ? parseInt(accountId as string) : undefined
+    const analysis = await getMatchAnalysis(matchId, playerSlotNum, currentUser, accountIdNum)
 
     if (!analysis) {
       return res.status(404).json({

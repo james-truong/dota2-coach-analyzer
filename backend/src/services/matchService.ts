@@ -43,12 +43,29 @@ export async function getMatchPlayers(matchId: string): Promise<any | null> {
   }
 }
 
-export async function getMatchAnalysis(matchId: string, playerSlot?: number, currentUser?: any): Promise<any | null> {
-  console.log(`Fetching analysis for match: ${matchId}${currentUser?.id ? ` (User ID: ${currentUser.id})` : ''}`)
+export async function getMatchAnalysis(matchId: string, playerSlot?: number, currentUser?: any, accountId?: number): Promise<any | null> {
+  console.log(`Fetching analysis for match: ${matchId}${currentUser?.id ? ` (User ID: ${currentUser.id})` : ''}${accountId ? ` (Account ID: ${accountId})` : ''}`)
 
-  // If player slot is specified, check if we've already analyzed this match
-  if (playerSlot !== undefined) {
-    const cachedAnalysis = await getCachedMatchAnalysis(matchId, playerSlot)
+  // If accountId is provided but playerSlot is not, we need to fetch match data first to find the player
+  // Otherwise, check cache with playerSlot
+  let resolvedPlayerSlot = playerSlot
+  let prefetchedMatchData: any = null
+
+  // If we have accountId but no playerSlot, fetch match data to resolve it
+  if (resolvedPlayerSlot === undefined && accountId !== undefined) {
+    prefetchedMatchData = await fetchMatchFromOpenDota(matchId)
+    if (prefetchedMatchData) {
+      const playerByAccount = prefetchedMatchData.players.find((p: any) => p.account_id === accountId)
+      if (playerByAccount) {
+        resolvedPlayerSlot = playerByAccount.player_slot
+        console.log(`📍 Resolved account_id ${accountId} to player_slot ${resolvedPlayerSlot}`)
+      }
+    }
+  }
+
+  // If player slot is specified (or resolved), check if we've already analyzed this match
+  if (resolvedPlayerSlot !== undefined) {
+    const cachedAnalysis = await getCachedMatchAnalysis(matchId, resolvedPlayerSlot)
 
     if (cachedAnalysis) {
       console.log(`💾 Cache HIT! Returning cached analysis for match ${matchId} (player slot ${playerSlot}) with item data`)
@@ -128,16 +145,16 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
 
   console.log(`🔍 No cache found - performing full analysis for match ${matchId}`)
 
-  // Fetch match data from OpenDota API
-  const matchData = await fetchMatchFromOpenDota(matchId)
+  // Fetch match data from OpenDota API (reuse prefetched data if available)
+  const matchData = prefetchedMatchData || await fetchMatchFromOpenDota(matchId)
 
   if (!matchData) {
     return null
   }
 
-  // If no player slot specified, analyze the first player (player slot 0)
-  const targetPlayerSlot = playerSlot !== undefined ? playerSlot : 0
-  const targetPlayer = matchData.players.find(p => p.player_slot === targetPlayerSlot)
+  // Use resolved player slot, or default to 0
+  const targetPlayerSlot = resolvedPlayerSlot !== undefined ? resolvedPlayerSlot : 0
+  const targetPlayer = matchData.players.find((p: any) => p.player_slot === targetPlayerSlot)
 
   if (!targetPlayer) {
     console.error(`Player slot ${targetPlayerSlot} not found in match`)
