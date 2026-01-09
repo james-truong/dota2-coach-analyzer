@@ -716,14 +716,19 @@ export async function generateItemRecommendations(
       ? message.content[0].text
       : ''
 
+    console.log('🤖 AI Response for item recommendations (first 500 chars):', responseText.substring(0, 500))
+
     const recommendations = parseItemRecommendationResponse(responseText, enemyThreats)
     if (recommendations) {
       console.log(`✓ Generated ${recommendations.recommendations.length} item recommendations`)
+    } else {
+      console.log('⚠️ Failed to parse AI response into recommendations')
     }
 
     return recommendations
   } catch (error: any) {
-    console.error('Error generating item recommendations:', error.message)
+    console.error('❌ Error generating item recommendations:', error.message)
+    console.error('Full error:', error)
     return null
   }
 }
