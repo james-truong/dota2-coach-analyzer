@@ -296,14 +296,16 @@ export async function analyzeItemBuild(
   let itemScore = 70 // Base score
 
   // Check for essential items based on role
-  if (detectedRole === 'Core') {
+  // Handle both legacy 'Core' and detailed roles 'Carry', 'Mid', 'Offlane'
+  const isCore = detectedRole === 'Core' || detectedRole === 'Carry' || detectedRole === 'Mid' || detectedRole === 'Offlane'
+  if (isCore) {
     analyzeCoreItems(heroName, itemNames, duration, stats, insights, positives, keyIssues)
   } else {
     analyzeSupportItems(heroName, itemNames, duration, insights, positives, keyIssues)
   }
 
   // Check for BKB on cores (very important)
-  if (detectedRole === 'Core' && duration > 25 * 60) {
+  if (isCore && duration > 25 * 60) {
     const hasBKB = itemNames.some(item => item.includes('Black King Bar'))
     if (!hasBKB) {
       insights.push({
@@ -324,7 +326,7 @@ export async function analyzeItemBuild(
   const hasMobility = itemNames.some(item =>
     item.includes('Blink') || item.includes('Force Staff') || item.includes('Hurricane Pike')
   )
-  if (!hasMobility && detectedRole === 'Core') {
+  if (!hasMobility && isCore) {
     insights.push({
       category: 'Mobility',
       severity: 'important',
@@ -361,7 +363,7 @@ export async function analyzeItemBuild(
   }
 
   // Check for damage items on cores
-  if (detectedRole === 'Core') {
+  if (isCore) {
     const damageItems = itemNames.filter(item =>
       item.includes('Daedalus') || item.includes('Monkey King Bar') || item.includes('Butterfly') ||
       item.includes('Desolator') || item.includes('Bloodthorn') || item.includes('Mjollnir') ||
@@ -403,7 +405,7 @@ export async function analyzeItemBuild(
   }
 
   // Positive feedback for good GPM
-  if (stats.gpm > 550 && detectedRole === 'Core') {
+  if (stats.gpm > 550 && isCore) {
     const farmItems = itemNames.filter(item =>
       item.includes('Battle Fury') || item.includes('Maelstrom') || item.includes('Mjollnir') ||
       item.includes('Radiance') || item.includes('Midas')
