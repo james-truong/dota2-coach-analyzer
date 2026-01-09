@@ -268,6 +268,7 @@ interface ItemBuildAnalysis {
   keyIssues: string[]
   positives: string[]
   recommendations?: BuildRecommendation  // AI-powered recommendations when score < 60
+  _debug?: { enemyCount: number; shouldGenerateRecs: boolean }  // Temporary debug info
 }
 
 /**
@@ -457,6 +458,11 @@ export async function analyzeItemBuild(
     keyIssues,
     positives,
     recommendations,
+    // Debug info - remove after testing
+    _debug: {
+      enemyCount: enemyPlayers?.length || 0,
+      shouldGenerateRecs: itemScore < 60 && (enemyPlayers?.length || 0) > 0,
+    },
   }
 }
 
