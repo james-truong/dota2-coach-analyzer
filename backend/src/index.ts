@@ -85,7 +85,7 @@ app.use('/api/sessions', sessionAnalysisRoutes)
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '0.3.2-accountid', timestamp: new Date().toISOString() })
+  res.json({ status: 'ok', version: '0.3.3-debug', timestamp: new Date().toISOString() })
 })
 
 // Admin endpoint to clear analysis data
