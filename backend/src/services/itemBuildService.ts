@@ -268,7 +268,7 @@ interface ItemBuildAnalysis {
   keyIssues: string[]
   positives: string[]
   recommendations?: BuildRecommendation  // AI-powered recommendations when score < 60
-  _debug?: { enemyCount: number; shouldGenerateRecs: boolean }  // Temporary debug info
+  _debug?: { enemyCount: number; shouldGenerateRecs: boolean; error?: string }  // Temporary debug info
 }
 
 /**
@@ -423,6 +423,7 @@ export async function analyzeItemBuild(
 
   // Generate AI-powered recommendations if score is poor (< 60) and enemy data available
   let recommendations: BuildRecommendation | undefined
+  let debugError: string | undefined
   console.log(`📊 Item score: ${itemScore}, Enemy players: ${enemyPlayers?.length || 0}, Threshold check: ${itemScore < 60}`)
   if (itemScore < 60 && enemyPlayers && enemyPlayers.length > 0) {
     try {
@@ -443,9 +444,11 @@ export async function analyzeItemBuild(
         console.log('✅ Item recommendations generated successfully')
       } else {
         console.log('⚠️ No recommendations returned from AI')
+        debugError = 'AI returned null (check API key or parsing)'
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error generating item recommendations:', error)
+      debugError = error.message || 'Unknown error'
     }
   } else {
     console.log(`⏭️ Skipping recommendations: score=${itemScore} (need <60), enemies=${enemyPlayers?.length || 0}`)
@@ -462,6 +465,7 @@ export async function analyzeItemBuild(
     _debug: {
       enemyCount: enemyPlayers?.length || 0,
       shouldGenerateRecs: itemScore < 60 && (enemyPlayers?.length || 0) > 0,
+      error: debugError,
     },
   }
 }
