@@ -125,6 +125,7 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
         itemBuild: cachedAnalysis.itemBuildAnalysis ? {
           ...cachedAnalysis.itemBuildAnalysis,
           purchaseHistory: cachedAnalysis.purchaseHistory || cachedAnalysis.itemBuildAnalysis.purchaseHistory || [],
+          recommendations: cachedAnalysis.itemBuildAnalysis.recommendations,
         } : {
           items: [],
           score: 0,
@@ -374,6 +375,8 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       keyIssues: itemBuildAnalysis.keyIssues,
       positives: itemBuildAnalysis.positives,
       purchaseHistory: purchaseHistory, // Full list of items purchased during the match
+      recommendations: itemBuildAnalysis.recommendations, // AI-powered recommendations when score < 60
+      _debug: itemBuildAnalysis._debug, // Temporary debug info
     },
     keyMoments: {
       moments: keyMomentsAnalysis.moments,
