@@ -693,10 +693,12 @@ export async function generateItemRecommendations(
   keyIssues: string[]
 ): Promise<BuildRecommendation | null> {
   // Check if API key is configured
-  if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.trim() === '') {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey || apiKey.trim() === '') {
     console.warn('⚠️  Anthropic API key not configured. Skipping item recommendations.')
-    return null
+    throw new Error('ANTHROPIC_API_KEY not configured')
   }
+  console.log(`🔑 API key configured (length: ${apiKey.length})`)
 
   try {
     const durationMinutes = Math.floor(duration / 60)
@@ -731,15 +733,14 @@ export async function generateItemRecommendations(
     const recommendations = parseItemRecommendationResponse(responseText, enemyThreats)
     if (recommendations) {
       console.log(`✓ Generated ${recommendations.recommendations.length} item recommendations`)
+      return recommendations
     } else {
       console.log('⚠️ Failed to parse AI response into recommendations')
+      throw new Error(`Parsing failed. Response preview: ${responseText.substring(0, 200)}`)
     }
-
-    return recommendations
   } catch (error: any) {
     console.error('❌ Error generating item recommendations:', error.message)
-    console.error('Full error:', error)
-    return null
+    throw error  // Re-throw to get specific error in debug output
   }
 }
 
