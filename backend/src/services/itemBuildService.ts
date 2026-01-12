@@ -268,7 +268,6 @@ interface ItemBuildAnalysis {
   keyIssues: string[]
   positives: string[]
   recommendations?: BuildRecommendation  // AI-powered recommendations when score < 60
-  _debug?: { enemyCount: number; shouldGenerateRecs: boolean; error?: string }  // Temporary debug info
 }
 
 /**
@@ -423,13 +422,9 @@ export async function analyzeItemBuild(
 
   // Generate AI-powered recommendations if score is poor (< 60) and enemy data available
   let recommendations: BuildRecommendation | undefined
-  let debugError: string | undefined
-  console.log(`📊 Item score: ${itemScore}, Enemy players: ${enemyPlayers?.length || 0}, Threshold check: ${itemScore < 60}`)
   if (itemScore < 60 && enemyPlayers && enemyPlayers.length > 0) {
     try {
-      console.log('🎯 Generating item recommendations (score < 60)...')
       const enemyThreats = await analyzeEnemyThreats(enemyPlayers)
-      console.log('📋 Enemy threats analyzed:', JSON.stringify(enemyThreats))
       const aiRecommendations = await generateItemRecommendations(
         heroName,
         detectedRole,
@@ -441,17 +436,11 @@ export async function analyzeItemBuild(
       )
       if (aiRecommendations) {
         recommendations = aiRecommendations
-        console.log('✅ Item recommendations generated successfully')
-      } else {
-        console.log('⚠️ No recommendations returned from AI')
-        debugError = 'AI returned null (check API key or parsing)'
       }
     } catch (error: any) {
-      console.error('❌ Error generating item recommendations:', error)
-      debugError = error.message || 'Unknown error'
+      // Log error but don't fail the analysis - recommendations are optional
+      console.error('Failed to generate item recommendations:', error.message)
     }
-  } else {
-    console.log(`⏭️ Skipping recommendations: score=${itemScore} (need <60), enemies=${enemyPlayers?.length || 0}`)
   }
 
   return {
@@ -461,12 +450,6 @@ export async function analyzeItemBuild(
     keyIssues,
     positives,
     recommendations,
-    // Debug info - remove after testing
-    _debug: {
-      enemyCount: enemyPlayers?.length || 0,
-      shouldGenerateRecs: itemScore < 60 && (enemyPlayers?.length || 0) > 0,
-      error: debugError,
-    },
   }
 }
 
@@ -693,12 +676,9 @@ export async function generateItemRecommendations(
   keyIssues: string[]
 ): Promise<BuildRecommendation | null> {
   // Check if API key is configured
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey || apiKey.trim() === '') {
-    console.warn('⚠️  Anthropic API key not configured. Skipping item recommendations.')
-    throw new Error('ANTHROPIC_API_KEY not configured')
+  if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.trim() === '') {
+    return null
   }
-  console.log(`🔑 API key configured (length: ${apiKey.length})`)
 
   try {
     const durationMinutes = Math.floor(duration / 60)
@@ -713,7 +693,6 @@ export async function generateItemRecommendations(
       keyIssues
     )
 
-    console.log('🛒 Generating AI item recommendations...')
     const client = getAnthropicClient()
     const message = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -728,19 +707,10 @@ export async function generateItemRecommendations(
       ? message.content[0].text
       : ''
 
-    console.log('🤖 AI Response for item recommendations (first 500 chars):', responseText.substring(0, 500))
-
-    const recommendations = parseItemRecommendationResponse(responseText, enemyThreats)
-    if (recommendations) {
-      console.log(`✓ Generated ${recommendations.recommendations.length} item recommendations`)
-      return recommendations
-    } else {
-      console.log('⚠️ Failed to parse AI response into recommendations')
-      throw new Error(`Parsing failed. Response preview: ${responseText.substring(0, 200)}`)
-    }
+    return parseItemRecommendationResponse(responseText, enemyThreats)
   } catch (error: any) {
-    console.error('❌ Error generating item recommendations:', error.message)
-    throw error  // Re-throw to get specific error in debug output
+    console.error('Error generating item recommendations:', error.message)
+    return null
   }
 }
 

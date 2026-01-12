@@ -1,6 +1,6 @@
 {
   "name": "dota2-coach-backend",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Backend API for Dota 2 Coach Analyzer",
   "main": "dist/index.js",
   "type": "module",

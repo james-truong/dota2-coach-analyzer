@@ -262,7 +262,6 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       hero_damage: p.hero_damage,
       kills: p.kills,
     }))
-  console.log(`👥 Extracted ${enemyPlayers.length} enemy players for item recommendations`)
 
   const itemBuildAnalysis = await analyzeItemBuild(
     heroName,
@@ -376,7 +375,6 @@ export async function getMatchAnalysis(matchId: string, playerSlot?: number, cur
       positives: itemBuildAnalysis.positives,
       purchaseHistory: purchaseHistory, // Full list of items purchased during the match
       recommendations: itemBuildAnalysis.recommendations, // AI-powered recommendations when score < 60
-      _debug: itemBuildAnalysis._debug, // Temporary debug info
     },
     keyMoments: {
       moments: keyMomentsAnalysis.moments,
